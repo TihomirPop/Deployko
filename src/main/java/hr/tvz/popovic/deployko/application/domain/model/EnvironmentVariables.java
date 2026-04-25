@@ -1,99 +1,109 @@
 package hr.tvz.popovic.deployko.application.domain.model;
 
-import java.util.List;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.regex.Pattern;
 
-public record EnvironmentVariables(List<EnvironmentVariable> entries) {
+public record EnvironmentVariables(Map<EnvironmentVariables.Key, EnvironmentVariables.Value> entries) {
+
+    public static EnvironmentVariables empty() {
+        return new EnvironmentVariables(Map.of());
+    }
 
     public EnvironmentVariables {
         Objects.requireNonNull(entries, "entries must not be null");
 
-        entries = List.copyOf(entries);
-        ensureUniqueKeys(entries);
+        entries = copyAndValidate(entries);
     }
 
-    public boolean containsKey(String key) {
+    public boolean containsKey(Key key) {
         Objects.requireNonNull(key, "key must not be null");
 
-        return entries.stream()
-                .anyMatch(entry -> entry.key().equals(key));
+        return entries.containsKey(key);
     }
 
-    public Optional<EnvironmentVariable> getByKey(String key) {
+    public Optional<Value> getByKey(Key key) {
         Objects.requireNonNull(key, "key must not be null");
 
-        return entries.stream()
-                .filter(entry -> entry.key().equals(key))
-                .findFirst();
+        return Optional.ofNullable(entries.get(key));
     }
 
-    public EnvironmentVariables add(EnvironmentVariable environmentVariable) {
-        Objects.requireNonNull(environmentVariable, "environmentVariable must not be null");
+    public EnvironmentVariables add(Key key, Value value) {
+        Objects.requireNonNull(key, "key must not be null");
+        Objects.requireNonNull(value, "value must not be null");
 
-        if (containsKey(environmentVariable.key())) {
+        if (entries.containsKey(key)) {
             throw new IllegalArgumentException("environment variable key must be unique");
         }
 
-        return new EnvironmentVariables(withAppendedEntry(environmentVariable));
+        Map<Key, Value> updatedEntries = new LinkedHashMap<>(entries);
+        updatedEntries.put(key, value);
+        return new EnvironmentVariables(updatedEntries);
     }
 
-    public EnvironmentVariables replace(EnvironmentVariable environmentVariable) {
-        Objects.requireNonNull(environmentVariable, "environmentVariable must not be null");
+    public EnvironmentVariables replace(Key key, Value value) {
+        Objects.requireNonNull(key, "key must not be null");
+        Objects.requireNonNull(value, "value must not be null");
 
-        if (!containsKey(environmentVariable.key())) {
+        if (!entries.containsKey(key)) {
             throw new IllegalArgumentException("environment variable key must exist");
         }
 
-        List<EnvironmentVariable> replacedEntries = entries.stream()
-                .map(replaceMatchingKey(environmentVariable))
-                .toList();
-
-        return new EnvironmentVariables(replacedEntries);
+        Map<Key, Value> updatedEntries = new LinkedHashMap<>(entries);
+        updatedEntries.put(key, value);
+        return new EnvironmentVariables(updatedEntries);
     }
 
-    public EnvironmentVariables removeByKey(String key) {
+    public EnvironmentVariables removeByKey(Key key) {
         Objects.requireNonNull(key, "key must not be null");
 
-        List<EnvironmentVariable> remainingEntries = entries.stream()
-                .filter(entry -> !entry.key().equals(key))
-                .toList();
-
-        return new EnvironmentVariables(remainingEntries);
+        Map<Key, Value> updatedEntries = new LinkedHashMap<>(entries);
+        updatedEntries.remove(key);
+        return new EnvironmentVariables(updatedEntries);
     }
 
-    public List<EnvironmentVariable> asList() {
+    public Map<Key, Value> asMap() {
         return entries;
     }
 
-    private static void ensureUniqueKeys(List<EnvironmentVariable> entries) {
-        long distinctKeys = entries.stream()
-                .map(EnvironmentVariable::key)
-                .distinct()
-                .count();
+    private static Map<Key, Value> copyAndValidate(Map<Key, Value> entries) {
+        LinkedHashMap<Key, Value> validatedEntries = new LinkedHashMap<>();
 
-        if (distinctKeys != entries.size()) {
-            throw new IllegalArgumentException("environment variable keys must be unique");
+        for (Map.Entry<Key, Value> entry : entries.entrySet()) {
+            Key key = Objects.requireNonNull(entry.getKey(), "key must not be null");
+            Value value = Objects.requireNonNull(entry.getValue(), "value must not be null");
+            validatedEntries.put(key, value);
+        }
+
+        return Collections.unmodifiableMap(validatedEntries);
+    }
+
+    public record Key(String value) {
+
+        private static final Pattern VALID_KEY_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
+
+        public Key {
+            Objects.requireNonNull(value, "value must not be null");
+
+            value = value.trim();
+
+            if (value.isEmpty()) {
+                throw new IllegalArgumentException("value must not be blank");
+            }
+
+            if (!VALID_KEY_PATTERN.matcher(value).matches()) {
+                throw new IllegalArgumentException("value must be a valid environment variable name");
+            }
         }
     }
 
-    private List<EnvironmentVariable> withAppendedEntry(EnvironmentVariable environmentVariable) {
-        return List.copyOf(
-                entries.stream()
-                        .collect(java.util.stream.Collectors.collectingAndThen(
-                                java.util.stream.Collectors.toList(),
-                                list -> {
-                                    list.add(environmentVariable);
-                                    return list;
-                                }
-                        ))
-        );
-    }
+    public record Value(String value) {
 
-    private static Function<EnvironmentVariable, EnvironmentVariable> replaceMatchingKey(
-            EnvironmentVariable replacement
-    ) {
-        return current -> current.key().equals(replacement.key()) ? replacement : current;
+        public Value {
+            Objects.requireNonNull(value, "value must not be null");
+        }
     }
 }
