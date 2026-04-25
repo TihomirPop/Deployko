@@ -27,7 +27,7 @@
         <url/>
     </scm>
     <properties>
-        <java.version>26</java.version>
+        <java.version>25</java.version>
         <docker-java.version>3.7.1</docker-java.version>
     </properties>
     <dependencies>
