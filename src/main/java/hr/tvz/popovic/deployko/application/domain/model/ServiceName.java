@@ -1,4 +1,4 @@
-package hr.tvz.popovic.deployko.domain.model;
+package hr.tvz.popovic.deployko.application.domain.model;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
