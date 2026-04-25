@@ -4,6 +4,10 @@ import java.util.Objects;
 
 public record Port(int value, Protocol protocol) {
 
+    public Port(int value) {
+        this(value, Protocol.TCP);
+    }
+
     public Port {
         Objects.requireNonNull(protocol, "protocol must not be null");
 
