@@ -1,0 +1,40 @@
+### Variables
+@host = http://localhost:8080
+@serviceName = deployko-api
+@imageRepository = ghcr.io/deployko/api
+
+### Create service
+POST {{host}}/services
+Content-Type: application/json
+
+{
+  "name": "{{serviceName}}",
+  "imageRepository": "{{imageRepository}}"
+}
+
+### Create duplicate service
+POST {{host}}/services
+Content-Type: application/json
+
+{
+  "name": "{{serviceName}}",
+  "imageRepository": "{{imageRepository}}"
+}
+
+### Create invalid service
+POST {{host}}/services
+Content-Type: application/json
+
+{
+  "name": "Deployko Api",
+  "imageRepository": "{{imageRepository}}"
+}
+
+### Delete service
+DELETE {{host}}/services/{{serviceName}}
+
+### Delete missing service
+DELETE {{host}}/services/missing-service
+
+### Delete invalid service
+DELETE {{host}}/services/Deployko Api
