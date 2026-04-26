@@ -7,7 +7,7 @@ import org.jooq.impl.DSL;
 import org.springframework.stereotype.Component;
 
 @Component
-final class JooqTransactionHelper {
+public final class JooqTransactionHelper {
 
     private final DSLContext dsl;
 

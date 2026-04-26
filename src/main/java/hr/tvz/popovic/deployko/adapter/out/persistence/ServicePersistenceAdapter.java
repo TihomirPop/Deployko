@@ -10,10 +10,13 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.jooq.DSLContext;
 import org.jooq.exception.DataAccessException;
-import org.springframework.stereotype.Repository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_ENVIRONMENT_VARIABLES;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_NETWORK_ATTACHMENTS;
@@ -21,12 +24,12 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_VOLUME_MOUNTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICES;
 
-@Repository
+@Component
 public final class ServicePersistenceAdapter implements CreateServicePort, DeleteServiceByNamePort {
 
-    private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
     private static final String BIND_MOUNT_TYPE = "BIND";
     private static final String VOLUME_MOUNT_TYPE = "VOLUME";
+    private static final Logger log = LoggerFactory.getLogger(ServicePersistenceAdapter.class);
 
     private final DSLContext dsl;
     private final JooqTransactionHelper transactions;
@@ -42,15 +45,16 @@ public final class ServicePersistenceAdapter implements CreateServicePort, Delet
 
         try {
             return transactions.inTransaction(transactionalDsl -> {
-                UUID serviceId = insertService(transactionalDsl, service);
-                insertRuntimeConfiguration(transactionalDsl, serviceId, service.runtimeConfiguration());
+                Optional<UUID> serviceId = insertService(transactionalDsl, service);
+                if (serviceId.isEmpty()) {
+                    return new CreateServicePortResult.AlreadyExists();
+                }
+
+                insertRuntimeConfiguration(transactionalDsl, serviceId.get(), service.runtimeConfiguration());
                 return new CreateServicePortResult.Success();
             });
         } catch (DataAccessException exception) {
-            if (UNIQUE_VIOLATION_SQL_STATE.equals(exception.sqlState())) {
-                return new CreateServicePortResult.AlreadyExists();
-            }
-
+            log.error("error while inserting service", exception);
             return new CreateServicePortResult.Failure();
         }
     }
@@ -75,13 +79,15 @@ public final class ServicePersistenceAdapter implements CreateServicePort, Delet
         }
     }
 
-    private static UUID insertService(DSLContext dsl, Service service) {
+    private static Optional<UUID> insertService(DSLContext dsl, Service service) {
         return dsl
                 .insertInto(SERVICES)
                 .set(SERVICES.NAME, service.name().value())
                 .set(SERVICES.IMAGE_REPOSITORY, service.imageRepository().value())
+                .onConflict(SERVICES.NAME)
+                .doNothing()
                 .returningResult(SERVICES.ID)
-                .fetchSingle(SERVICES.ID);
+                .fetchOptional(SERVICES.ID);
     }
 
     private static void insertRuntimeConfiguration(
