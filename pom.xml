@@ -29,6 +29,7 @@
     <properties>
         <java.version>25</java.version>
         <docker-java.version>3.7.1</docker-java.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
     <dependencies>
         <dependency>
@@ -87,6 +88,18 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -97,5 +110,84 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>jooq-codegen</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.jooq</groupId>
+                    <artifactId>jooq-codegen</artifactId>
+                    <version>${jooq.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.testcontainers</groupId>
+                    <artifactId>testcontainers-postgresql</artifactId>
+                    <version>${testcontainers.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.flywaydb</groupId>
+                    <artifactId>flyway-core</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>org.flywaydb</groupId>
+                    <artifactId>flyway-database-postgresql</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>org.postgresql</groupId>
+                    <artifactId>postgresql</artifactId>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>compile-jooq-codegen-runner</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>compile</goal>
+                                </goals>
+                                <configuration>
+                                    <compileSourceRoots>
+                                        <compileSourceRoot>${project.basedir}/src/jooq-codegen/java</compileSourceRoot>
+                                    </compileSourceRoots>
+                                    <outputDirectory>${project.build.directory}/jooq-codegen-classes</outputDirectory>
+                                    <proc>none</proc>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.6.3</version>
+                        <executions>
+                            <execution>
+                                <id>generate-jooq</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>hr.tvz.popovic.deployko.build.JooqCodegen</mainClass>
+                                    <classpathScope>compile</classpathScope>
+                                    <addResourcesToClasspath>true</addResourcesToClasspath>
+                                    <cleanupDaemonThreads>false</cleanupDaemonThreads>
+                                    <additionalClasspathElements>
+                                        <additionalClasspathElement>
+                                            ${project.build.directory}/jooq-codegen-classes
+                                        </additionalClasspathElement>
+                                    </additionalClasspathElements>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
