@@ -1,3 +1,7 @@
 spring:
   application:
     name: Deployko
+  datasource:
+    url: ${DEPLOYKO_DATASOURCE_URL:jdbc:postgresql://localhost:5432/deployko}
+    username: ${DEPLOYKO_DATASOURCE_USERNAME:deployko}
+    password: ${DEPLOYKO_DATASOURCE_PASSWORD:deployko}
