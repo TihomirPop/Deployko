@@ -1,6 +1,7 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
+import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
@@ -9,6 +10,7 @@ import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,7 +27,7 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICES;
 
 @Component
-public final class ServicePersistenceAdapter implements CreateServicePort, DeleteServiceByNamePort {
+public final class ServicePersistenceAdapter implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort {
 
     private static final String BIND_MOUNT_TYPE = "BIND";
     private static final String VOLUME_MOUNT_TYPE = "VOLUME";
@@ -56,6 +58,26 @@ public final class ServicePersistenceAdapter implements CreateServicePort, Delet
         } catch (DataAccessException exception) {
             log.error("error while inserting service", exception);
             return new CreateServicePortResult.Failure();
+        }
+    }
+
+    @Override
+    public FindServiceDefinitionResult findByName(ServiceName serviceName) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+
+        try {
+            return dsl
+                    .select(SERVICES.IMAGE_REPOSITORY)
+                    .from(SERVICES)
+                    .where(SERVICES.NAME.eq(serviceName.value()))
+                    .fetchOptional(SERVICES.IMAGE_REPOSITORY)
+                    .<FindServiceDefinitionResult>map(imageRepository -> new FindServiceDefinitionResult.Found(
+                            serviceName,
+                            new ImageRepository(imageRepository)
+                    ))
+                    .orElseGet(FindServiceDefinitionResult.NotFound::new);
+        } catch (DataAccessException _) {
+            return new FindServiceDefinitionResult.Failure();
         }
     }
 

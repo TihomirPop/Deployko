@@ -13,6 +13,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import org.flywaydb.core.Flyway;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -126,6 +127,27 @@ class ServicePersistenceAdapterTest {
         assertThat(firstResult).isInstanceOf(CreateServicePort.CreateServicePortResult.Success.class);
         assertThat(duplicateResult).isInstanceOf(CreateServicePort.CreateServicePortResult.AlreadyExists.class);
         assertThat(dsl.fetchCount(SERVICES)).isEqualTo(1);
+    }
+
+    @Test
+    void find_by_name_returns_service_definition_when_service_exists() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+
+        FindServiceDefinitionPort.FindServiceDefinitionResult result = adapter.findByName(service.name());
+
+        assertThat(result).isInstanceOf(FindServiceDefinitionPort.FindServiceDefinitionResult.Found.class);
+        FindServiceDefinitionPort.FindServiceDefinitionResult.Found found =
+                (FindServiceDefinitionPort.FindServiceDefinitionResult.Found) result;
+        assertThat(found.serviceName()).isEqualTo(service.name());
+        assertThat(found.imageRepository()).isEqualTo(service.imageRepository());
+    }
+
+    @Test
+    void find_by_name_returns_not_found_when_service_does_not_exist() {
+        FindServiceDefinitionPort.FindServiceDefinitionResult result = adapter.findByName(new ServiceName("missing-api"));
+
+        assertThat(result).isInstanceOf(FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound.class);
     }
 
     @Test
