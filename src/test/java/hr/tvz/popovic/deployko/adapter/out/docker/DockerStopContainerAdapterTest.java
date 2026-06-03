@@ -3,7 +3,7 @@ package hr.tvz.popovic.deployko.adapter.out.docker;
 import com.github.dockerjava.api.exception.DockerException;
 import com.github.dockerjava.api.model.Container;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
-import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -11,63 +11,63 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class DockerStartContainerAdapterTest {
+class DockerStopContainerAdapterTest {
 
     private static final ServiceName SERVICE_NAME = new ServiceName("deployko-api");
 
     private final FakeDockerContainerClient dockerContainerClient = new FakeDockerContainerClient();
-    private final DockerStartContainerAdapter adapter = new DockerStartContainerAdapter(dockerContainerClient);
+    private final DockerStopContainerAdapter adapter = new DockerStopContainerAdapter(dockerContainerClient);
 
     @Test
-    void starts_single_managed_container_for_service() {
+    void stops_single_managed_container_for_service() {
         Container container = container("container-1");
         dockerContainerClient.containers = List.of(container);
 
-        StartContainerPort.StartContainerResult result = adapter.start(SERVICE_NAME);
+        StopContainerPort.StopContainerResult result = adapter.stop(SERVICE_NAME);
 
-        assertThat(result).isInstanceOf(StartContainerPort.StartContainerResult.Success.class);
-        assertThat(dockerContainerClient.startedContainerIds).containsExactly("container-1");
+        assertThat(result).isInstanceOf(StopContainerPort.StopContainerResult.Success.class);
+        assertThat(dockerContainerClient.stoppedContainerIds).containsExactly("container-1");
     }
 
     @Test
     void returns_missing_when_no_managed_container_exists() {
         dockerContainerClient.containers = List.of();
 
-        StartContainerPort.StartContainerResult result = adapter.start(SERVICE_NAME);
+        StopContainerPort.StopContainerResult result = adapter.stop(SERVICE_NAME);
 
-        assertThat(result).isInstanceOf(StartContainerPort.StartContainerResult.MissingContainer.class);
-        assertThat(dockerContainerClient.startedContainerIds).isEmpty();
+        assertThat(result).isInstanceOf(StopContainerPort.StopContainerResult.MissingContainer.class);
+        assertThat(dockerContainerClient.stoppedContainerIds).isEmpty();
     }
 
     @Test
     void returns_duplicate_when_multiple_managed_containers_exist() {
         dockerContainerClient.containers = List.of(container("container-1"), container("container-2"));
 
-        StartContainerPort.StartContainerResult result = adapter.start(SERVICE_NAME);
+        StopContainerPort.StopContainerResult result = adapter.stop(SERVICE_NAME);
 
-        assertThat(result).isInstanceOf(StartContainerPort.StartContainerResult.DuplicateManagedContainers.class);
-        assertThat(dockerContainerClient.startedContainerIds).isEmpty();
+        assertThat(result).isInstanceOf(StopContainerPort.StopContainerResult.DuplicateManagedContainers.class);
+        assertThat(dockerContainerClient.stoppedContainerIds).isEmpty();
     }
 
     @Test
     void returns_failure_when_listing_containers_fails() {
         dockerContainerClient.listFailure = new DockerException("docker unavailable", 500);
 
-        StartContainerPort.StartContainerResult result = adapter.start(SERVICE_NAME);
+        StopContainerPort.StopContainerResult result = adapter.stop(SERVICE_NAME);
 
-        assertThat(result).isInstanceOf(StartContainerPort.StartContainerResult.Failure.class);
+        assertThat(result).isInstanceOf(StopContainerPort.StopContainerResult.Failure.class);
     }
 
     @Test
-    void returns_failure_when_starting_container_fails() {
+    void returns_failure_when_stopping_container_fails() {
         Container container = container("container-1");
         dockerContainerClient.containers = List.of(container);
-        dockerContainerClient.startFailure = new DockerException("docker unavailable", 500);
+        dockerContainerClient.stopFailure = new DockerException("docker unavailable", 500);
 
-        StartContainerPort.StartContainerResult result = adapter.start(SERVICE_NAME);
+        StopContainerPort.StopContainerResult result = adapter.stop(SERVICE_NAME);
 
-        assertThat(result).isInstanceOf(StartContainerPort.StartContainerResult.Failure.class);
-        assertThat(dockerContainerClient.startedContainerIds).containsExactly("container-1");
+        assertThat(result).isInstanceOf(StopContainerPort.StopContainerResult.Failure.class);
+        assertThat(dockerContainerClient.stoppedContainerIds).containsExactly("container-1");
     }
 
     private static Container container(String id) {
@@ -77,9 +77,9 @@ class DockerStartContainerAdapterTest {
     private static final class FakeDockerContainerClient implements DockerContainerClient {
 
         private List<Container> containers = List.of();
-        private List<String> startedContainerIds = new ArrayList<>();
+        private List<String> stoppedContainerIds = new ArrayList<>();
         private DockerException listFailure;
-        private DockerException startFailure;
+        private DockerException stopFailure;
 
         @Override
         public List<Container> listManagedContainers(ServiceName serviceName) {
@@ -94,15 +94,15 @@ class DockerStartContainerAdapterTest {
 
         @Override
         public void startContainer(String containerId) {
-            startedContainerIds.add(containerId);
-
-            if (startFailure != null) {
-                throw startFailure;
-            }
         }
 
         @Override
         public void stopContainer(String containerId) {
+            stoppedContainerIds.add(containerId);
+
+            if (stopFailure != null) {
+                throw stopFailure;
+            }
         }
     }
 

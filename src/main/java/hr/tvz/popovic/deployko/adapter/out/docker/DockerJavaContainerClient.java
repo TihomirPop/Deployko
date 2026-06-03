@@ -33,4 +33,11 @@ class DockerJavaContainerClient implements DockerContainerClient {
 
         dockerClient.startContainerCmd(containerId).exec();
     }
+
+    @Override
+    public void stopContainer(String containerId) {
+        Objects.requireNonNull(containerId, "containerId must not be null");
+
+        dockerClient.stopContainerCmd(containerId).exec();
+    }
 }

@@ -10,4 +10,6 @@ interface DockerContainerClient {
     List<Container> listManagedContainers(ServiceName serviceName);
 
     void startContainer(String containerId);
+
+    void stopContainer(String containerId);
 }
