@@ -43,6 +43,19 @@ pipeline {
                 }
             }
         }
+        stage('Publish Event') {
+            steps {
+                script {
+                    rabbitMQPublisher(
+                        rabbitName: 'rabbitmq',
+                        exchange: 'ci-events',
+                        routingKey: 'pipeline.completed',
+                        data: "event=pipeline_completed\nstatus=success\nrepo=${env.GIT_URL}\ntag=${imageTag}\nbuildNumber=${env.BUILD_NUMBER}",
+                        toJson: true
+                    )
+                }
+            }
+        }
     }
     post {
         always {
