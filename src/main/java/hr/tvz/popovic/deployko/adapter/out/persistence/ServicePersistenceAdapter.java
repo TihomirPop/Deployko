@@ -1,5 +1,6 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
+import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
@@ -11,6 +12,8 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +23,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENTS;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_ENVIRONMENT_VARIABLES;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_NETWORK_ATTACHMENTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_PORT_MAPPINGS;
@@ -27,7 +35,8 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICES;
 
 @Component
-public final class ServicePersistenceAdapter implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort {
+public final class ServicePersistenceAdapter
+        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, UpsertDesiredDeploymentPort {
 
     private static final String BIND_MOUNT_TYPE = "BIND";
     private static final String VOLUME_MOUNT_TYPE = "VOLUME";
@@ -58,6 +67,27 @@ public final class ServicePersistenceAdapter implements CreateServicePort, Delet
         } catch (DataAccessException exception) {
             log.error("error while inserting service", exception);
             return new CreateServicePortResult.Failure();
+        }
+    }
+
+    @Override
+    public UpsertDesiredDeploymentResult upsert(DesiredDeployment desiredDeployment) {
+        Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
+
+        try {
+            return transactions.inTransaction(transactionalDsl -> {
+                Optional<UUID> serviceId = findServiceId(transactionalDsl, desiredDeployment.serviceName());
+                if (serviceId.isEmpty()) {
+                    return new UpsertDesiredDeploymentResult.ServiceNotFound();
+                }
+
+                upsertDesiredDeployment(transactionalDsl, serviceId.get(), desiredDeployment);
+                replaceDesiredRuntimeConfiguration(transactionalDsl, serviceId.get(), desiredDeployment.runtimeConfiguration());
+                return new UpsertDesiredDeploymentResult.Success();
+            });
+        } catch (DataAccessException exception) {
+            log.error("error while upserting desired deployment", exception);
+            return new UpsertDesiredDeploymentResult.Failure();
         }
     }
 
@@ -110,6 +140,130 @@ public final class ServicePersistenceAdapter implements CreateServicePort, Delet
                 .doNothing()
                 .returningResult(SERVICES.ID)
                 .fetchOptional(SERVICES.ID);
+    }
+
+    private static Optional<UUID> findServiceId(DSLContext dsl, ServiceName serviceName) {
+        return dsl
+                .select(SERVICES.ID)
+                .from(SERVICES)
+                .where(SERVICES.NAME.eq(serviceName.value()))
+                .fetchOptional(SERVICES.ID);
+    }
+
+    private static void upsertDesiredDeployment(
+            DSLContext dsl,
+            UUID serviceId,
+            DesiredDeployment desiredDeployment
+    ) {
+        dsl
+                .insertInto(SERVICE_DESIRED_DEPLOYMENTS)
+                .set(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID, serviceId)
+                .set(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION, desiredDeployment.imageVersion().value())
+                .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, desiredDeployment.desiredState().name())
+                .onConflict(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID)
+                .doUpdate()
+                .set(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION, desiredDeployment.imageVersion().value())
+                .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, desiredDeployment.desiredState().name())
+                .set(SERVICE_DESIRED_DEPLOYMENTS.UPDATED_AT, OffsetDateTime.now())
+                .execute();
+    }
+
+    private static void replaceDesiredRuntimeConfiguration(
+            DSLContext dsl,
+            UUID serviceId,
+            RuntimeConfiguration runtimeConfiguration
+    ) {
+        deleteDesiredRuntimeConfiguration(dsl, serviceId);
+        insertDesiredEnvironmentVariables(dsl, serviceId, runtimeConfiguration);
+        insertDesiredPortMappings(dsl, serviceId, runtimeConfiguration);
+        insertDesiredVolumeMounts(dsl, serviceId, runtimeConfiguration);
+        insertDesiredNetworkAttachments(dsl, serviceId, runtimeConfiguration);
+    }
+
+    private static void deleteDesiredRuntimeConfiguration(DSLContext dsl, UUID serviceId) {
+        dsl.deleteFrom(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES)
+                .where(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.SERVICE_ID.eq(serviceId))
+                .execute();
+        dsl.deleteFrom(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS)
+                .where(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.SERVICE_ID.eq(serviceId))
+                .execute();
+        dsl.deleteFrom(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS)
+                .where(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS.SERVICE_ID.eq(serviceId))
+                .execute();
+        dsl.deleteFrom(SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS)
+                .where(SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS.SERVICE_ID.eq(serviceId))
+                .execute();
+    }
+
+    private static void insertDesiredEnvironmentVariables(
+            DSLContext dsl,
+            UUID serviceId,
+            RuntimeConfiguration runtimeConfiguration
+    ) {
+        for (var entry : runtimeConfiguration.environmentVariables().asMap().entrySet()) {
+            EnvironmentVariables.Key key = entry.getKey();
+            EnvironmentVariables.Value value = entry.getValue();
+
+            dsl
+                    .insertInto(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES)
+                    .set(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.SERVICE_ID, serviceId)
+                    .set(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.KEY, key.value())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.VALUE, value.value())
+                    .execute();
+        }
+    }
+
+    private static void insertDesiredPortMappings(
+            DSLContext dsl,
+            UUID serviceId,
+            RuntimeConfiguration runtimeConfiguration
+    ) {
+        for (var entry : runtimeConfiguration.portMappings().asMap().entrySet()) {
+            Port hostPort = entry.getKey();
+            Port containerPort = entry.getValue();
+
+            dsl
+                    .insertInto(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS)
+                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.SERVICE_ID, serviceId)
+                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.HOST_PORT, hostPort.value())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.HOST_PROTOCOL, hostPort.protocol().name())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.CONTAINER_PORT, containerPort.value())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.CONTAINER_PROTOCOL, containerPort.protocol().name())
+                    .execute();
+        }
+    }
+
+    private static void insertDesiredVolumeMounts(
+            DSLContext dsl,
+            UUID serviceId,
+            RuntimeConfiguration runtimeConfiguration
+    ) {
+        for (VolumeMount volumeMount : runtimeConfiguration.volumeMounts().asMap().values()) {
+            VolumeMountValues values = VolumeMountValues.from(volumeMount);
+
+            dsl
+                    .insertInto(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS)
+                    .set(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS.SERVICE_ID, serviceId)
+                    .set(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS.TARGET_PATH, volumeMount.target().value())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS.MOUNT_TYPE, values.mountType())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS.SOURCE, values.source())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS.READ_ONLY, volumeMount.readOnly())
+                    .execute();
+        }
+    }
+
+    private static void insertDesiredNetworkAttachments(
+            DSLContext dsl,
+            UUID serviceId,
+            RuntimeConfiguration runtimeConfiguration
+    ) {
+        for (NetworkAttachment networkAttachment : runtimeConfiguration.networkAttachments().asMap().values()) {
+            dsl
+                    .insertInto(SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS)
+                    .set(SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS.SERVICE_ID, serviceId)
+                    .set(SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS.NETWORK_NAME, networkAttachment.networkName().value())
+                    .execute();
+        }
     }
 
     private static void insertRuntimeConfiguration(

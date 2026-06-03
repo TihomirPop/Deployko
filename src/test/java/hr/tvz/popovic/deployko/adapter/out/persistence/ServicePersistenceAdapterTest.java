@@ -1,7 +1,10 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
+import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
+import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
+import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachments;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
@@ -14,6 +17,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.flywaydb.core.Flyway;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -24,6 +28,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENTS;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_ENVIRONMENT_VARIABLES;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_NETWORK_ATTACHMENTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_PORT_MAPPINGS;
@@ -151,6 +160,79 @@ class ServicePersistenceAdapterTest {
     }
 
     @Test
+    void upsert_persists_desired_deployment_with_runtime_configuration_snapshot() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+
+        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result = adapter.upsert(desiredDeployment(service));
+
+        assertThat(result).isInstanceOf(UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success.class);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isEqualTo(1);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES)).isEqualTo(2);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS)).isEqualTo(2);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS)).isEqualTo(2);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS)).isEqualTo(2);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_DESIRED_DEPLOYMENTS)
+                        .where(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION.eq("1.0.0"))
+                        .and(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE.eq("RUNNING"))
+        )).isTrue();
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES)
+                        .where(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.KEY.eq("APP_ENV"))
+                        .and(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.VALUE.eq("prod"))
+        )).isTrue();
+    }
+
+    @Test
+    void upsert_replaces_existing_desired_deployment_snapshot() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+        adapter.upsert(desiredDeployment(service));
+        DesiredDeployment replacement = new DesiredDeployment(
+                service.name(),
+                service.imageRepository(),
+                new ImageVersion("2.0.0"),
+                RuntimeConfiguration.empty(),
+                DesiredDeploymentState.RUNNING
+        );
+
+        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result = adapter.upsert(replacement);
+
+        assertThat(result).isInstanceOf(UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success.class);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isEqualTo(1);
+        assertThat(dsl.fetchValue(
+                dsl
+                        .select(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION)
+                        .from(SERVICE_DESIRED_DEPLOYMENTS)
+        )).isEqualTo("2.0.0");
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES)).isZero();
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS)).isZero();
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS)).isZero();
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS)).isZero();
+    }
+
+    @Test
+    void upsert_returns_service_not_found_when_service_does_not_exist() {
+        DesiredDeployment desiredDeployment = new DesiredDeployment(
+                new ServiceName("missing-api"),
+                new ImageRepository("registry.example.com/team/missing-api"),
+                new ImageVersion("1.0.0"),
+                RuntimeConfiguration.empty(),
+                DesiredDeploymentState.RUNNING
+        );
+
+        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result = adapter.upsert(desiredDeployment);
+
+        assertThat(result).isInstanceOf(UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.ServiceNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isZero();
+    }
+
+    @Test
     void delete_by_name_deletes_service_and_runtime_configuration() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
         adapter.create(service);
@@ -202,6 +284,16 @@ class ServicePersistenceAdapterTest {
                                 .add(new NetworkAttachment(new NetworkAttachment.NetworkName("deployko_backend")))
                                 .add(new NetworkAttachment(new NetworkAttachment.NetworkName("observability")))
                 )
+        );
+    }
+
+    private static DesiredDeployment desiredDeployment(Service service) {
+        return new DesiredDeployment(
+                service.name(),
+                service.imageRepository(),
+                new ImageVersion("1.0.0"),
+                service.runtimeConfiguration(),
+                DesiredDeploymentState.RUNNING
         );
     }
 }
