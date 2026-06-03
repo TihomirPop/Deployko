@@ -4,6 +4,11 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated;
 
 
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentEnvironmentVariables;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentNetworkAttachments;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentPortMappings;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentVolumeMounts;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeployments;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceEnvironmentVariables;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceNetworkAttachments;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServicePortMappings;
@@ -16,6 +21,33 @@ import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.Ser
  */
 @SuppressWarnings({ "all", "unchecked", "rawtypes", "this-escape" })
 public class Tables {
+
+    /**
+     * The table
+     * <code>public.service_desired_deployment_environment_variables</code>.
+     */
+    public static final ServiceDesiredDeploymentEnvironmentVariables SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES = ServiceDesiredDeploymentEnvironmentVariables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES;
+
+    /**
+     * The table
+     * <code>public.service_desired_deployment_network_attachments</code>.
+     */
+    public static final ServiceDesiredDeploymentNetworkAttachments SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS = ServiceDesiredDeploymentNetworkAttachments.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS;
+
+    /**
+     * The table <code>public.service_desired_deployment_port_mappings</code>.
+     */
+    public static final ServiceDesiredDeploymentPortMappings SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS = ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS;
+
+    /**
+     * The table <code>public.service_desired_deployment_volume_mounts</code>.
+     */
+    public static final ServiceDesiredDeploymentVolumeMounts SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS = ServiceDesiredDeploymentVolumeMounts.SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS;
+
+    /**
+     * The table <code>public.service_desired_deployments</code>.
+     */
+    public static final ServiceDesiredDeployments SERVICE_DESIRED_DEPLOYMENTS = ServiceDesiredDeployments.SERVICE_DESIRED_DEPLOYMENTS;
 
     /**
      * The table <code>public.service_environment_variables</code>.

@@ -4,6 +4,11 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated;
 
 
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentEnvironmentVariables;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentNetworkAttachments;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentPortMappings;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentVolumeMounts;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeployments;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceEnvironmentVariables;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceNetworkAttachments;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServicePortMappings;
@@ -30,6 +35,33 @@ public class Public extends SchemaImpl {
      * The reference instance of <code>public</code>
      */
     public static final Public PUBLIC = new Public();
+
+    /**
+     * The table
+     * <code>public.service_desired_deployment_environment_variables</code>.
+     */
+    public final ServiceDesiredDeploymentEnvironmentVariables SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES = ServiceDesiredDeploymentEnvironmentVariables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES;
+
+    /**
+     * The table
+     * <code>public.service_desired_deployment_network_attachments</code>.
+     */
+    public final ServiceDesiredDeploymentNetworkAttachments SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS = ServiceDesiredDeploymentNetworkAttachments.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS;
+
+    /**
+     * The table <code>public.service_desired_deployment_port_mappings</code>.
+     */
+    public final ServiceDesiredDeploymentPortMappings SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS = ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS;
+
+    /**
+     * The table <code>public.service_desired_deployment_volume_mounts</code>.
+     */
+    public final ServiceDesiredDeploymentVolumeMounts SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS = ServiceDesiredDeploymentVolumeMounts.SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS;
+
+    /**
+     * The table <code>public.service_desired_deployments</code>.
+     */
+    public final ServiceDesiredDeployments SERVICE_DESIRED_DEPLOYMENTS = ServiceDesiredDeployments.SERVICE_DESIRED_DEPLOYMENTS;
 
     /**
      * The table <code>public.service_environment_variables</code>.
@@ -72,6 +104,11 @@ public class Public extends SchemaImpl {
     @Override
     public final List<Table<?>> getTables() {
         return Arrays.asList(
+            ServiceDesiredDeploymentEnvironmentVariables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES,
+            ServiceDesiredDeploymentNetworkAttachments.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS,
+            ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS,
+            ServiceDesiredDeploymentVolumeMounts.SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS,
+            ServiceDesiredDeployments.SERVICE_DESIRED_DEPLOYMENTS,
             ServiceEnvironmentVariables.SERVICE_ENVIRONMENT_VARIABLES,
             ServiceNetworkAttachments.SERVICE_NETWORK_ATTACHMENTS,
             ServicePortMappings.SERVICE_PORT_MAPPINGS,
