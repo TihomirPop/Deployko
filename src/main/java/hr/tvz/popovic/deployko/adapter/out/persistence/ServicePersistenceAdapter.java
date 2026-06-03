@@ -1,6 +1,7 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
+import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
@@ -12,6 +13,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -36,7 +38,8 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class ServicePersistenceAdapter
-        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, UpsertDesiredDeploymentPort {
+        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, UpsertDesiredDeploymentPort,
+        UpdateDesiredDeploymentStatePort {
 
     private static final String BIND_MOUNT_TYPE = "BIND";
     private static final String VOLUME_MOUNT_TYPE = "VOLUME";
@@ -88,6 +91,38 @@ public final class ServicePersistenceAdapter
         } catch (DataAccessException exception) {
             log.error("error while upserting desired deployment", exception);
             return new UpsertDesiredDeploymentResult.Failure();
+        }
+    }
+
+    @Override
+    public UpdateDesiredDeploymentStateResult updateState(
+            ServiceName serviceName,
+            DesiredDeploymentState desiredState
+    ) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+        Objects.requireNonNull(desiredState, "desiredState must not be null");
+
+        try {
+            Optional<UUID> serviceId = findServiceId(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new UpdateDesiredDeploymentStateResult.ServiceNotFound();
+            }
+
+            int updatedRows = dsl
+                    .update(SERVICE_DESIRED_DEPLOYMENTS)
+                    .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, desiredState.name())
+                    .set(SERVICE_DESIRED_DEPLOYMENTS.UPDATED_AT, OffsetDateTime.now())
+                    .where(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID.eq(serviceId.get()))
+                    .execute();
+
+            return switch (updatedRows) {
+                case 0 -> new UpdateDesiredDeploymentStateResult.NotDeployed();
+                case 1 -> new UpdateDesiredDeploymentStateResult.Success();
+                default -> new UpdateDesiredDeploymentStateResult.Failure();
+            };
+        } catch (DataAccessException exception) {
+            log.error("error while updating desired deployment state", exception);
+            return new UpdateDesiredDeploymentStateResult.Failure();
         }
     }
 

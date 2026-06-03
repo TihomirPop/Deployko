@@ -17,6 +17,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.flywaydb.core.Flyway;
 import org.jooq.DSLContext;
@@ -230,6 +231,42 @@ class ServicePersistenceAdapterTest {
 
         assertThat(result).isInstanceOf(UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.ServiceNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isZero();
+    }
+
+    @Test
+    void update_state_updates_existing_desired_deployment_state() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+        adapter.upsert(desiredDeployment(service));
+
+        UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult result =
+                adapter.updateState(service.name(), DesiredDeploymentState.STOPPED);
+
+        assertThat(result).isInstanceOf(UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.Success.class);
+        assertThat(dsl.fetchValue(
+                dsl
+                        .select(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE)
+                        .from(SERVICE_DESIRED_DEPLOYMENTS)
+        )).isEqualTo("STOPPED");
+    }
+
+    @Test
+    void update_state_returns_not_deployed_when_service_has_no_desired_deployment() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+
+        UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult result =
+                adapter.updateState(service.name(), DesiredDeploymentState.RUNNING);
+
+        assertThat(result).isInstanceOf(UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.NotDeployed.class);
+    }
+
+    @Test
+    void update_state_returns_service_not_found_when_service_does_not_exist() {
+        UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult result =
+                adapter.updateState(new ServiceName("missing-api"), DesiredDeploymentState.RUNNING);
+
+        assertThat(result).isInstanceOf(UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.ServiceNotFound.class);
     }
 
     @Test
