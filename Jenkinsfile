@@ -9,6 +9,7 @@ pipeline {
             steps {
                 script {
                     imageTag = "${env.REGISTRY_URL}/${appName}:${env.BUILD_NUMBER}-${env.GIT_COMMIT?.take(7) ?: 'latest'}"
+                    echo "Docker image tag: ${imageTag}"
                 }
             }
         }
