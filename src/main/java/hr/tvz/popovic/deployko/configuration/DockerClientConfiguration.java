@@ -6,6 +6,8 @@ import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
+import hr.tvz.popovic.deployko.adapter.out.docker.DockerStartContainerAdapter;
+import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -28,5 +30,10 @@ public class DockerClientConfiguration {
     @Bean
     DockerClient dockerClient(DockerClientConfig dockerClientConfig, DockerHttpClient dockerHttpClient) {
         return DockerClientImpl.getInstance(dockerClientConfig, dockerHttpClient);
+    }
+
+    @Bean
+    StartContainerPort startContainerPort(DockerClient dockerClient) {
+        return new DockerStartContainerAdapter(dockerClient);
     }
 }
