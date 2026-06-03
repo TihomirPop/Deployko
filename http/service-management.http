@@ -1,7 +1,8 @@
 ### Variables
 @host = http://localhost:8080
-@serviceName = deployko-api
-@imageRepository = ghcr.io/deployko/api
+@serviceName = deployko-nginx
+@imageRepository = docker.io/library/nginx
+@imageVersion = latest
 
 ### Create service
 POST {{host}}/services
@@ -38,3 +39,27 @@ DELETE {{host}}/services/missing-service
 
 ### Delete invalid service
 DELETE {{host}}/services/Deployko Api
+
+### Deploy service
+POST {{host}}/services/{{serviceName}}/deployments
+Content-Type: application/json
+
+{
+  "imageVersion": "{{imageVersion}}"
+}
+
+### Deploy missing service
+POST {{host}}/services/missing-service/deployments
+Content-Type: application/json
+
+{
+  "imageVersion": "{{imageVersion}}"
+}
+
+### Deploy invalid image version
+POST {{host}}/services/{{serviceName}}/deployments
+Content-Type: application/json
+
+{
+  "imageVersion": "feature/build"
+}
