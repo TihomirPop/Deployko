@@ -5,11 +5,14 @@ import com.github.dockerjava.api.exception.DockerException;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 
 public class DockerDeployContainerAdapter implements DeployContainerPort {
 
+    private static final Logger log = LoggerFactory.getLogger(DockerDeployContainerAdapter.class);
     private final DockerDeploymentClient dockerDeploymentClient;
 
     public DockerDeployContainerAdapter(DockerClient dockerClient) {
@@ -29,7 +32,8 @@ public class DockerDeployContainerAdapter implements DeployContainerPort {
 
         try {
             return deployContainer(desiredDeployment);
-        } catch (DockerException _) {
+        } catch (DockerException e) {
+            log.error("Exception occurred while trying to deploy docker container", e);
             return new DeployContainerResult.Failure();
         }
     }
