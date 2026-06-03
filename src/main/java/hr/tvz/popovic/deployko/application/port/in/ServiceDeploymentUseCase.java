@@ -1,7 +1,6 @@
 package hr.tvz.popovic.deployko.application.port.in;
 
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
-import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 
 public interface ServiceDeploymentUseCase {
@@ -14,8 +13,7 @@ public interface ServiceDeploymentUseCase {
 
     record DeployServiceCommand(
             ServiceName serviceName,
-            ImageVersion imageVersion,
-            RuntimeConfiguration runtimeConfiguration
+            ImageVersion imageVersion
     ) {
     }
 

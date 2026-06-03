@@ -5,11 +5,14 @@ import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
+import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachments;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
+import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
+import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
@@ -132,16 +135,18 @@ public final class ServicePersistenceAdapter
 
         try {
             return dsl
-                    .select(SERVICES.IMAGE_REPOSITORY)
+                    .select(SERVICES.ID, SERVICES.IMAGE_REPOSITORY)
                     .from(SERVICES)
                     .where(SERVICES.NAME.eq(serviceName.value()))
-                    .fetchOptional(SERVICES.IMAGE_REPOSITORY)
-                    .<FindServiceDefinitionResult>map(imageRepository -> new FindServiceDefinitionResult.Found(
+                    .fetchOptional(record -> new Service(
                             serviceName,
-                            new ImageRepository(imageRepository)
+                            new ImageRepository(record.get(SERVICES.IMAGE_REPOSITORY)),
+                            findRuntimeConfiguration(record.get(SERVICES.ID))
                     ))
+                    .<FindServiceDefinitionResult>map(FindServiceDefinitionResult.Found::new)
                     .orElseGet(FindServiceDefinitionResult.NotFound::new);
-        } catch (DataAccessException _) {
+        } catch (DataAccessException exception) {
+            log.error("error while finding service definition", exception);
             return new FindServiceDefinitionResult.Failure();
         }
     }
@@ -183,6 +188,127 @@ public final class ServicePersistenceAdapter
                 .from(SERVICES)
                 .where(SERVICES.NAME.eq(serviceName.value()))
                 .fetchOptional(SERVICES.ID);
+    }
+
+    private RuntimeConfiguration findRuntimeConfiguration(UUID serviceId) {
+        return new RuntimeConfiguration(
+                findEnvironmentVariables(serviceId),
+                findPortMappings(serviceId),
+                findVolumeMounts(serviceId),
+                findNetworkAttachments(serviceId)
+        );
+    }
+
+    private EnvironmentVariables findEnvironmentVariables(UUID serviceId) {
+        EnvironmentVariables environmentVariables = EnvironmentVariables.empty();
+
+        var records = dsl
+                .select(
+                        SERVICE_ENVIRONMENT_VARIABLES.KEY,
+                        SERVICE_ENVIRONMENT_VARIABLES.VALUE
+                )
+                .from(SERVICE_ENVIRONMENT_VARIABLES)
+                .where(SERVICE_ENVIRONMENT_VARIABLES.SERVICE_ID.eq(serviceId))
+                .fetch();
+
+        for (var record : records) {
+            environmentVariables = environmentVariables.add(
+                    new EnvironmentVariables.Key(record.get(SERVICE_ENVIRONMENT_VARIABLES.KEY)),
+                    new EnvironmentVariables.Value(record.get(SERVICE_ENVIRONMENT_VARIABLES.VALUE))
+            );
+        }
+
+        return environmentVariables;
+    }
+
+    private PortMappings findPortMappings(UUID serviceId) {
+        PortMappings portMappings = PortMappings.empty();
+
+        var records = dsl
+                .select(
+                        SERVICE_PORT_MAPPINGS.HOST_PORT,
+                        SERVICE_PORT_MAPPINGS.HOST_PROTOCOL,
+                        SERVICE_PORT_MAPPINGS.CONTAINER_PORT,
+                        SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL
+                )
+                .from(SERVICE_PORT_MAPPINGS)
+                .where(SERVICE_PORT_MAPPINGS.SERVICE_ID.eq(serviceId))
+                .fetch();
+
+        for (var record : records) {
+            portMappings = portMappings.add(
+                    new Port(
+                            record.get(SERVICE_PORT_MAPPINGS.HOST_PORT),
+                            Port.Protocol.valueOf(record.get(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL))
+                    ),
+                    new Port(
+                            record.get(SERVICE_PORT_MAPPINGS.CONTAINER_PORT),
+                            Port.Protocol.valueOf(record.get(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL))
+                    )
+            );
+        }
+
+        return portMappings;
+    }
+
+    private VolumeMounts findVolumeMounts(UUID serviceId) {
+        VolumeMounts volumeMounts = VolumeMounts.empty();
+
+        var records = dsl
+                .select(
+                        SERVICE_VOLUME_MOUNTS.TARGET_PATH,
+                        SERVICE_VOLUME_MOUNTS.MOUNT_TYPE,
+                        SERVICE_VOLUME_MOUNTS.SOURCE,
+                        SERVICE_VOLUME_MOUNTS.READ_ONLY
+                )
+                .from(SERVICE_VOLUME_MOUNTS)
+                .where(SERVICE_VOLUME_MOUNTS.SERVICE_ID.eq(serviceId))
+                .fetch();
+
+        for (var record : records) {
+            volumeMounts = volumeMounts.add(toVolumeMount(record));
+        }
+
+        return volumeMounts;
+    }
+
+    private NetworkAttachments findNetworkAttachments(UUID serviceId) {
+        NetworkAttachments networkAttachments = NetworkAttachments.empty();
+
+        var records = dsl
+                .select(SERVICE_NETWORK_ATTACHMENTS.NETWORK_NAME)
+                .from(SERVICE_NETWORK_ATTACHMENTS)
+                .where(SERVICE_NETWORK_ATTACHMENTS.SERVICE_ID.eq(serviceId))
+                .fetch();
+
+        for (var record : records) {
+            networkAttachments = networkAttachments.add(new NetworkAttachment(
+                    new NetworkAttachment.NetworkName(record.get(SERVICE_NETWORK_ATTACHMENTS.NETWORK_NAME))
+            ));
+        }
+
+        return networkAttachments;
+    }
+
+    private static VolumeMount toVolumeMount(org.jooq.Record record) {
+        String targetPath = record.get(SERVICE_VOLUME_MOUNTS.TARGET_PATH);
+        String mountType = record.get(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE);
+        String source = record.get(SERVICE_VOLUME_MOUNTS.SOURCE);
+        boolean readOnly = record.get(SERVICE_VOLUME_MOUNTS.READ_ONLY);
+
+        return switch (mountType) {
+            case BIND_MOUNT_TYPE -> new VolumeMount.BindMount(
+                    new VolumeMount.HostPath(source),
+                    new VolumeMount.Target(targetPath),
+                    readOnly
+            );
+            case VOLUME_MOUNT_TYPE -> new VolumeMount.NamedVolumeMount(
+                    new VolumeMount.VolumeName(source),
+                    new VolumeMount.Target(targetPath),
+                    readOnly
+            );
+            default -> throw new IllegalStateException("unknown mount type: " + mountType);
+        };
     }
 
     private static void upsertDesiredDeployment(

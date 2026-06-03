@@ -1,6 +1,6 @@
 package hr.tvz.popovic.deployko.application.port.out;
 
-import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
+import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 
 public interface FindServiceDefinitionPort {
@@ -11,7 +11,7 @@ public interface FindServiceDefinitionPort {
             permits FindServiceDefinitionResult.Found, FindServiceDefinitionResult.NotFound,
             FindServiceDefinitionResult.Failure {
 
-        record Found(ServiceName serviceName, ImageRepository imageRepository) implements FindServiceDefinitionResult {
+        record Found(Service service) implements FindServiceDefinitionResult {
         }
 
         record NotFound() implements FindServiceDefinitionResult {

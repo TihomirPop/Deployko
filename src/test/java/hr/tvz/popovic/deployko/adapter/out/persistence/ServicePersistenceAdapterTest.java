@@ -149,8 +149,7 @@ class ServicePersistenceAdapterTest {
         assertThat(result).isInstanceOf(FindServiceDefinitionPort.FindServiceDefinitionResult.Found.class);
         FindServiceDefinitionPort.FindServiceDefinitionResult.Found found =
                 (FindServiceDefinitionPort.FindServiceDefinitionResult.Found) result;
-        assertThat(found.serviceName()).isEqualTo(service.name());
-        assertThat(found.imageRepository()).isEqualTo(service.imageRepository());
+        assertThat(found.service()).isEqualTo(service);
     }
 
     @Test
