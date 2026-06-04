@@ -21,6 +21,7 @@ import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -60,6 +61,7 @@ class PersistenceAdaptersTest {
     private static DSLContext dsl;
     private static ServiceDefinitionPersistenceAdapter serviceDefinitions;
     private static DesiredDeploymentPersistenceAdapter desiredDeployments;
+    private static ServiceEnvironmentVariablePersistenceAdapter environmentVariables;
     private static ServicePortMappingPersistenceAdapter portMappings;
     private static ServiceVolumeMountPersistenceAdapter volumeMounts;
 
@@ -75,6 +77,7 @@ class PersistenceAdaptersTest {
         JooqTransactionHelper transactions = new JooqTransactionHelper(dsl);
         serviceDefinitions = new ServiceDefinitionPersistenceAdapter(dsl, transactions);
         desiredDeployments = new DesiredDeploymentPersistenceAdapter(dsl, transactions);
+        environmentVariables = new ServiceEnvironmentVariablePersistenceAdapter(dsl);
         portMappings = new ServicePortMappingPersistenceAdapter(dsl, transactions);
         volumeMounts = new ServiceVolumeMountPersistenceAdapter(dsl, transactions);
     }
@@ -195,6 +198,30 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(FindServicePortMappingsPort.FindServicePortMappingsResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void find_environment_variables_returns_variables_when_service_exists() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult result =
+                environmentVariables.findEnvironmentVariables(service.name());
+
+        assertThat(result)
+                .isInstanceOf(FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.Found.class);
+        FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.Found found =
+                (FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.Found) result;
+        assertThat(found.environmentVariables()).isEqualTo(service.runtimeConfiguration().environmentVariables());
+    }
+
+    @Test
+    void find_environment_variables_returns_service_not_found_when_service_does_not_exist() {
+        FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult result =
+                environmentVariables.findEnvironmentVariables(new ServiceName("missing-api"));
+
+        assertThat(result)
+                .isInstanceOf(FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.ServiceNotFound.class);
     }
 
     @Test

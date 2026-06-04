@@ -7,6 +7,8 @@
 @hostProtocol = TCP
 @containerPort = 80
 @containerProtocol = TCP
+@environmentVariableKey = APP_ENV
+@environmentVariableValue = prod
 @targetPath = /usr/share/nginx/html
 @volumeMountType = BIND
 @volumeMountSource = /home/tpopovic/dev/deployko-nginx
@@ -47,6 +49,12 @@ DELETE {{host}}/services/missing-service
 
 ### Delete invalid service
 DELETE {{host}}/services/Deployko Api
+
+### Get environment variables
+GET {{host}}/services/{{serviceName}}/runtime-configuration/environment-variables
+
+### Get environment variables missing service
+GET {{host}}/services/missing-service/runtime-configuration/environment-variables
 
 ### Get port mappings
 GET {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings

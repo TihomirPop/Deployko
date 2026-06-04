@@ -1,5 +1,6 @@
 package hr.tvz.popovic.deployko.adapter.in;
 
+import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
@@ -9,6 +10,7 @@ import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCa
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ServiceRuntimeConfigurationController {
 
     private final GetServicePortMappingsUseCase getServicePortMappingsUseCase;
+    private final GetServiceEnvironmentVariablesUseCase getServiceEnvironmentVariablesUseCase;
     private final CreateServicePortMappingUseCase createServicePortMappingUseCase;
     private final DeleteServicePortMappingUseCase deleteServicePortMappingUseCase;
     private final GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase;
@@ -38,6 +41,7 @@ public class ServiceRuntimeConfigurationController {
     private final DeleteServiceVolumeMountUseCase deleteServiceVolumeMountUseCase;
 
     public ServiceRuntimeConfigurationController(
+            GetServiceEnvironmentVariablesUseCase getServiceEnvironmentVariablesUseCase,
             GetServicePortMappingsUseCase getServicePortMappingsUseCase,
             CreateServicePortMappingUseCase createServicePortMappingUseCase,
             DeleteServicePortMappingUseCase deleteServicePortMappingUseCase,
@@ -46,6 +50,7 @@ public class ServiceRuntimeConfigurationController {
             UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase,
             DeleteServiceVolumeMountUseCase deleteServiceVolumeMountUseCase
     ) {
+        this.getServiceEnvironmentVariablesUseCase = getServiceEnvironmentVariablesUseCase;
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
         this.createServicePortMappingUseCase = createServicePortMappingUseCase;
         this.deleteServicePortMappingUseCase = deleteServicePortMappingUseCase;
@@ -53,6 +58,29 @@ public class ServiceRuntimeConfigurationController {
         this.createServiceVolumeMountUseCase = createServiceVolumeMountUseCase;
         this.updateServiceVolumeMountUseCase = updateServiceVolumeMountUseCase;
         this.deleteServiceVolumeMountUseCase = deleteServiceVolumeMountUseCase;
+    }
+
+    @GetMapping("/environment-variables")
+    public ResponseEntity<?> getEnvironmentVariables(@PathVariable String serviceName) {
+        try {
+            GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult result =
+                    getServiceEnvironmentVariablesUseCase.getServiceEnvironmentVariables(
+                            new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesCommand(
+                                    new ServiceName(serviceName)
+                            )
+                    );
+
+            return switch (result) {
+                case GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Success success ->
+                        ResponseEntity.ok(EnvironmentVariableHttpResponse.from(success.environmentVariables()));
+                case GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.NotFound _ ->
+                        ResponseEntity.notFound().build();
+                case GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @GetMapping("/port-mappings")
@@ -328,6 +356,18 @@ public class ServiceRuntimeConfigurationController {
                     containerPort.value(),
                     containerPort.protocol().name()
             );
+        }
+    }
+
+    public record EnvironmentVariableHttpResponse(String key, String value) {
+
+        static List<EnvironmentVariableHttpResponse> from(EnvironmentVariables environmentVariables) {
+            return environmentVariables
+                    .asMap()
+                    .entrySet()
+                    .stream()
+                    .map(entry -> new EnvironmentVariableHttpResponse(entry.getKey().value(), entry.getValue().value()))
+                    .toList();
         }
     }
 

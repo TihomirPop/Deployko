@@ -71,7 +71,7 @@ final class ServiceRuntimeConfigurationRecords {
         insertNetworkAttachments(dsl, serviceId, runtimeConfiguration);
     }
 
-    private EnvironmentVariables findEnvironmentVariables(UUID serviceId) {
+    EnvironmentVariables findEnvironmentVariables(UUID serviceId) {
         EnvironmentVariables environmentVariables = EnvironmentVariables.empty();
 
         var records = dsl
