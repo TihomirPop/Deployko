@@ -3,12 +3,15 @@ package hr.tvz.popovic.deployko.adapter.in;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -17,9 +20,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class ServiceRuntimeConfigurationController {
 
     private final GetServicePortMappingsUseCase getServicePortMappingsUseCase;
+    private final CreateServicePortMappingUseCase createServicePortMappingUseCase;
 
-    public ServiceRuntimeConfigurationController(GetServicePortMappingsUseCase getServicePortMappingsUseCase) {
+    public ServiceRuntimeConfigurationController(
+            GetServicePortMappingsUseCase getServicePortMappingsUseCase,
+            CreateServicePortMappingUseCase createServicePortMappingUseCase
+    ) {
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
+        this.createServicePortMappingUseCase = createServicePortMappingUseCase;
     }
 
     @GetMapping("/port-mappings")
@@ -42,6 +50,52 @@ public class ServiceRuntimeConfigurationController {
             };
         } catch (IllegalArgumentException | NullPointerException _) {
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/port-mappings")
+    public ResponseEntity<Void> createPortMapping(
+            @PathVariable String serviceName,
+            @RequestBody CreatePortMappingHttpRequest request
+    ) {
+        try {
+            CreateServicePortMappingUseCase.CreateServicePortMappingResult result =
+                    createServicePortMappingUseCase.createServicePortMapping(
+                            new CreateServicePortMappingUseCase.CreateServicePortMappingCommand(
+                                    new ServiceName(serviceName),
+                                    request.toHostPort(),
+                                    request.toContainerPort()
+                            )
+                    );
+
+            return switch (result) {
+                case CreateServicePortMappingUseCase.CreateServicePortMappingResult.Success _ ->
+                        ResponseEntity.status(HttpStatus.CREATED).build();
+                case CreateServicePortMappingUseCase.CreateServicePortMappingResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case CreateServicePortMappingUseCase.CreateServicePortMappingResult.AlreadyExists _ ->
+                        ResponseEntity.status(HttpStatus.CONFLICT).build();
+                case CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    public record CreatePortMappingHttpRequest(
+            int hostPort,
+            String hostProtocol,
+            int containerPort,
+            String containerProtocol
+    ) {
+
+        Port toHostPort() {
+            return new Port(hostPort, Port.Protocol.valueOf(hostProtocol));
+        }
+
+        Port toContainerPort() {
+            return new Port(containerPort, Port.Protocol.valueOf(containerProtocol));
         }
     }
 

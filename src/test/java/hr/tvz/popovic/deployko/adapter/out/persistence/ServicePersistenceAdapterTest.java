@@ -14,6 +14,7 @@ import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
+import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
@@ -179,6 +180,75 @@ class ServicePersistenceAdapterTest {
                 adapter.findPortMappings(new ServiceName("missing-api"));
 
         assertThat(result).isInstanceOf(FindServicePortMappingsPort.FindServicePortMappingsResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void create_port_mapping_inserts_mapping_when_service_exists() {
+        Service service = new Service(
+                new ServiceName("billing-api"),
+                new ImageRepository("registry.example.com/team/billing-api"),
+                RuntimeConfiguration.empty()
+        );
+        adapter.create(service);
+
+        CreateServicePortMappingPort.CreateServicePortMappingResult result = adapter.createPortMapping(
+                service.name(),
+                new Port(8080),
+                new Port(80)
+        );
+
+        assertThat(result).isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.Created.class);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_PORT_MAPPINGS)
+                        .where(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(8080))
+                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq("TCP"))
+                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PORT.eq(80))
+                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL.eq("TCP"))
+        )).isTrue();
+    }
+
+    @Test
+    void create_port_mapping_returns_service_not_found_when_service_does_not_exist() {
+        CreateServicePortMappingPort.CreateServicePortMappingResult result = adapter.createPortMapping(
+                new ServiceName("missing-api"),
+                new Port(8080),
+                new Port(80)
+        );
+
+        assertThat(result).isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.ServiceNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isZero();
+    }
+
+    @Test
+    void create_port_mapping_returns_already_exists_when_host_port_conflicts() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+
+        CreateServicePortMappingPort.CreateServicePortMappingResult result = adapter.createPortMapping(
+                service.name(),
+                new Port(8080),
+                new Port(81)
+        );
+
+        assertThat(result).isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.AlreadyExists.class);
+        assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isEqualTo(2);
+    }
+
+    @Test
+    void create_port_mapping_returns_already_exists_when_container_port_conflicts() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+
+        CreateServicePortMappingPort.CreateServicePortMappingResult result = adapter.createPortMapping(
+                service.name(),
+                new Port(8081),
+                new Port(80)
+        );
+
+        assertThat(result).isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.AlreadyExists.class);
+        assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isEqualTo(2);
     }
 
     @Test

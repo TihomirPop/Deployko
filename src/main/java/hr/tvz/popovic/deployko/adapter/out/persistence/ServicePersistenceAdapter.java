@@ -13,6 +13,7 @@ import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
+import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
@@ -43,7 +44,7 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 @Component
 public final class ServicePersistenceAdapter
         implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, UpsertDesiredDeploymentPort,
-        UpdateDesiredDeploymentStatePort, FindServicePortMappingsPort {
+        UpdateDesiredDeploymentStatePort, FindServicePortMappingsPort, CreateServicePortMappingPort {
 
     private static final String BIND_MOUNT_TYPE = "BIND";
     private static final String VOLUME_MOUNT_TYPE = "VOLUME";
@@ -189,6 +190,36 @@ public final class ServicePersistenceAdapter
         }
     }
 
+    @Override
+    public CreateServicePortMappingResult createPortMapping(
+            ServiceName serviceName,
+            Port hostPort,
+            Port containerPort
+    ) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+        Objects.requireNonNull(hostPort, "hostPort must not be null");
+        Objects.requireNonNull(containerPort, "containerPort must not be null");
+
+        try {
+            return transactions.inTransaction(transactionalDsl -> {
+                Optional<UUID> serviceId = findServiceId(transactionalDsl, serviceName);
+                if (serviceId.isEmpty()) {
+                    return new CreateServicePortMappingResult.ServiceNotFound();
+                }
+
+                if (portMappingExists(transactionalDsl, serviceId.get(), hostPort, containerPort)) {
+                    return new CreateServicePortMappingResult.AlreadyExists();
+                }
+
+                insertPortMapping(transactionalDsl, serviceId.get(), hostPort, containerPort);
+                return new CreateServicePortMappingResult.Created();
+            });
+        } catch (DataAccessException exception) {
+            log.error("error while creating service port mapping", exception);
+            return new CreateServicePortMappingResult.Failure();
+        }
+    }
+
     private static Optional<UUID> insertService(DSLContext dsl, Service service) {
         return dsl
                 .insertInto(SERVICES)
@@ -206,6 +237,45 @@ public final class ServicePersistenceAdapter
                 .from(SERVICES)
                 .where(SERVICES.NAME.eq(serviceName.value()))
                 .fetchOptional(SERVICES.ID);
+    }
+
+    private static boolean portMappingExists(
+            DSLContext dsl,
+            UUID serviceId,
+            Port hostPort,
+            Port containerPort
+    ) {
+        return dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_PORT_MAPPINGS)
+                        .where(SERVICE_PORT_MAPPINGS.SERVICE_ID.eq(serviceId))
+                        .and(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(hostPort.value()))
+                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(hostPort.protocol().name()))
+        ) || dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_PORT_MAPPINGS)
+                        .where(SERVICE_PORT_MAPPINGS.SERVICE_ID.eq(serviceId))
+                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PORT.eq(containerPort.value()))
+                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL.eq(containerPort.protocol().name()))
+        );
+    }
+
+    private static void insertPortMapping(
+            DSLContext dsl,
+            UUID serviceId,
+            Port hostPort,
+            Port containerPort
+    ) {
+        dsl
+                .insertInto(SERVICE_PORT_MAPPINGS)
+                .set(SERVICE_PORT_MAPPINGS.SERVICE_ID, serviceId)
+                .set(SERVICE_PORT_MAPPINGS.HOST_PORT, hostPort.value())
+                .set(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL, hostPort.protocol().name())
+                .set(SERVICE_PORT_MAPPINGS.CONTAINER_PORT, containerPort.value())
+                .set(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL, containerPort.protocol().name())
+                .execute();
     }
 
     private RuntimeConfiguration findRuntimeConfiguration(UUID serviceId) {
