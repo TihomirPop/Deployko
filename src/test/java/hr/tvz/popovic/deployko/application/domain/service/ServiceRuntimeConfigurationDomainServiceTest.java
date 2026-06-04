@@ -8,12 +8,14 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
@@ -352,6 +354,62 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 .isInstanceOf(UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure.class);
     }
 
+    @Test
+    void delete_volume_mount_returns_success_when_mount_is_deleted() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountDeleter(
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Deleted()
+        );
+
+        DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult result = service.deleteServiceVolumeMount(
+                deleteVolumeMountCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Success.class);
+    }
+
+    @Test
+    void delete_volume_mount_returns_service_not_found_when_service_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountDeleter(
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.ServiceNotFound()
+        );
+
+        DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult result = service.deleteServiceVolumeMount(
+                deleteVolumeMountCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void delete_volume_mount_returns_volume_mount_not_found_when_mount_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountDeleter(
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.VolumeMountNotFound()
+        );
+
+        DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult result = service.deleteServiceVolumeMount(
+                deleteVolumeMountCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.VolumeMountNotFound.class);
+    }
+
+    @Test
+    void delete_volume_mount_returns_failure_when_persistence_fails() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountDeleter(
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+        );
+
+        DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult result = service.deleteServiceVolumeMount(
+                deleteVolumeMountCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure.class);
+    }
+
     private static ServiceRuntimeConfigurationDomainService serviceWithPortMappingFinder(
             FindServicePortMappingsPort findPort
     ) {
@@ -361,7 +419,8 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
-                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure()
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
         );
     }
 
@@ -374,7 +433,8 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
-                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure()
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
         );
     }
 
@@ -387,7 +447,8 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 deletePort,
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
-                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure()
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
         );
     }
 
@@ -400,7 +461,8 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
                 findPort,
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
-                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure()
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
         );
     }
 
@@ -413,7 +475,8 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 createPort,
-                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure()
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
         );
     }
 
@@ -426,7 +489,22 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
-                updatePort
+                updatePort,
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+        );
+    }
+
+    private static ServiceRuntimeConfigurationDomainService serviceWithVolumeMountDeleter(
+            DeleteServiceVolumeMountPort deletePort
+    ) {
+        return new ServiceRuntimeConfigurationDomainService(
+                _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
+                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                deletePort
         );
     }
 
@@ -451,5 +529,9 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     private static UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountCommand updateVolumeMountCommand() {
         return new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountCommand(SERVICE_NAME, VOLUME_MOUNT);
+    }
+
+    private static DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountCommand deleteVolumeMountCommand() {
+        return new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountCommand(SERVICE_NAME, VOLUME_MOUNT.target());
     }
 }

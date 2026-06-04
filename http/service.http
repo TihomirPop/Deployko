@@ -197,6 +197,18 @@ Content-Type: application/json
   "readOnly": false
 }
 
+### Delete volume mount
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?targetPath={{targetPath}}
+
+### Delete volume mount missing service
+DELETE {{host}}/services/missing-service/runtime-configuration/volume-mounts?targetPath={{targetPath}}
+
+### Delete missing volume mount
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?targetPath=/var/log/deployko
+
+### Delete invalid volume mount
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?targetPath=app/config
+
 ### Deploy
 POST {{host}}/services/{{serviceName}}/runtime/deploy
 Content-Type: application/json

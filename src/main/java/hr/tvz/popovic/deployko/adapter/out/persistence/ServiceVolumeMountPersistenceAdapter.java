@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
 import java.util.Objects;
@@ -18,7 +19,8 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class ServiceVolumeMountPersistenceAdapter
-        implements FindServiceVolumeMountsPort, CreateServiceVolumeMountPort, UpdateServiceVolumeMountPort {
+        implements FindServiceVolumeMountsPort, CreateServiceVolumeMountPort, UpdateServiceVolumeMountPort,
+        DeleteServiceVolumeMountPort {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceVolumeMountPersistenceAdapter.class);
 
@@ -97,6 +99,34 @@ public final class ServiceVolumeMountPersistenceAdapter
         } catch (DataAccessException exception) {
             log.error("error while updating service volume mount", exception);
             return new UpdateServiceVolumeMountResult.Failure();
+        }
+    }
+
+    @Override
+    public DeleteServiceVolumeMountResult deleteVolumeMount(ServiceName serviceName, VolumeMount.Target target) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+        Objects.requireNonNull(target, "target must not be null");
+
+        try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new DeleteServiceVolumeMountResult.ServiceNotFound();
+            }
+
+            int deletedRows = dsl
+                    .deleteFrom(SERVICE_VOLUME_MOUNTS)
+                    .where(SERVICE_VOLUME_MOUNTS.SERVICE_ID.eq(serviceId.get()))
+                    .and(SERVICE_VOLUME_MOUNTS.TARGET_PATH.eq(target.value()))
+                    .execute();
+
+            return switch (deletedRows) {
+                case 0 -> new DeleteServiceVolumeMountResult.VolumeMountNotFound();
+                case 1 -> new DeleteServiceVolumeMountResult.Deleted();
+                default -> new DeleteServiceVolumeMountResult.Failure();
+            };
+        } catch (DataAccessException exception) {
+            log.error("error while deleting service volume mount", exception);
+            return new DeleteServiceVolumeMountResult.Failure();
         }
     }
 

@@ -7,6 +7,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
@@ -493,9 +494,65 @@ class ServiceRuntimeConfigurationControllerTest {
                 .andExpect(status().isInternalServerError());
     }
 
+    @Test
+    void deletes_volume_mount_and_returns_no_content() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Success()
+        ));
+
+        mockMvc.perform(delete("/services/{serviceName}/runtime-configuration/volume-mounts", "deployko-api")
+                        .queryParam("targetPath", "/app/config"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void returns_not_found_when_deleting_volume_mount_for_missing_service() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.ServiceNotFound()
+        ));
+
+        mockMvc.perform(delete("/services/{serviceName}/runtime-configuration/volume-mounts", "missing-api")
+                        .queryParam("targetPath", "/app/config"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_not_found_when_deleting_missing_volume_mount() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.VolumeMountNotFound()
+        ));
+
+        mockMvc.perform(delete("/services/{serviceName}/runtime-configuration/volume-mounts", "deployko-api")
+                        .queryParam("targetPath", "/app/config"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_bad_request_when_deleting_volume_mount_with_invalid_target_path() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+        ));
+
+        mockMvc.perform(delete("/services/{serviceName}/runtime-configuration/volume-mounts", "deployko-api")
+                        .queryParam("targetPath", "app/config"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_internal_server_error_when_deleting_volume_mount_fails_unexpectedly() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+        ));
+
+        mockMvc.perform(delete("/services/{serviceName}/runtime-configuration/volume-mounts", "deployko-api")
+                        .queryParam("targetPath", "/app/config"))
+                .andExpect(status().isInternalServerError());
+    }
+
     private static MockMvc mockMvc(StubServiceRuntimeConfigurationUseCases useCases) {
         return MockMvcBuilders
                 .standaloneSetup(new ServiceRuntimeConfigurationController(
+                        useCases,
                         useCases,
                         useCases,
                         useCases,
@@ -544,9 +601,11 @@ class ServiceRuntimeConfigurationControllerTest {
             DeleteServicePortMappingUseCase.DeleteServicePortMappingResult deletePortMappingResult,
             GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult getVolumeMountsResult,
             CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult createVolumeMountResult,
-            UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult updateVolumeMountResult
+            UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult updateVolumeMountResult,
+            DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult deleteVolumeMountResult
     ) implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase,
-            GetServiceVolumeMountsUseCase, CreateServiceVolumeMountUseCase, UpdateServiceVolumeMountUseCase {
+            GetServiceVolumeMountsUseCase, CreateServiceVolumeMountUseCase, UpdateServiceVolumeMountUseCase,
+            DeleteServiceVolumeMountUseCase {
 
         private StubServiceRuntimeConfigurationUseCases(
                 GetServicePortMappingsUseCase.GetServicePortMappingsResult getPortMappingsResult
@@ -557,7 +616,8 @@ class ServiceRuntimeConfigurationControllerTest {
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
-                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure()
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
             );
         }
 
@@ -571,7 +631,8 @@ class ServiceRuntimeConfigurationControllerTest {
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
-                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure()
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
             );
         }
 
@@ -584,7 +645,8 @@ class ServiceRuntimeConfigurationControllerTest {
                     deletePortMappingResult,
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
-                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure()
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
             );
         }
 
@@ -597,7 +659,8 @@ class ServiceRuntimeConfigurationControllerTest {
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
                     getVolumeMountsResult,
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
-                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure()
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
             );
         }
 
@@ -610,7 +673,8 @@ class ServiceRuntimeConfigurationControllerTest {
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     createVolumeMountResult,
-                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure()
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
             );
         }
 
@@ -623,7 +687,22 @@ class ServiceRuntimeConfigurationControllerTest {
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
-                    updateVolumeMountResult
+                    updateVolumeMountResult,
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+            );
+        }
+
+        private StubServiceRuntimeConfigurationUseCases(
+                DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult deleteVolumeMountResult
+        ) {
+            this(
+                    new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
+                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
+                    new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
+                    new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    deleteVolumeMountResult
             );
         }
 
@@ -655,6 +734,11 @@ class ServiceRuntimeConfigurationControllerTest {
         @Override
         public UpdateServiceVolumeMountResult updateServiceVolumeMount(UpdateServiceVolumeMountCommand command) {
             return updateVolumeMountResult;
+        }
+
+        @Override
+        public DeleteServiceVolumeMountResult deleteServiceVolumeMount(DeleteServiceVolumeMountCommand command) {
+            return deleteVolumeMountResult;
         }
     }
 }

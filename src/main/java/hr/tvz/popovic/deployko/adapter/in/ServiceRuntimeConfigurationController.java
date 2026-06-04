@@ -8,6 +8,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
@@ -34,6 +35,7 @@ public class ServiceRuntimeConfigurationController {
     private final GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase;
     private final CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase;
     private final UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase;
+    private final DeleteServiceVolumeMountUseCase deleteServiceVolumeMountUseCase;
 
     public ServiceRuntimeConfigurationController(
             GetServicePortMappingsUseCase getServicePortMappingsUseCase,
@@ -41,7 +43,8 @@ public class ServiceRuntimeConfigurationController {
             DeleteServicePortMappingUseCase deleteServicePortMappingUseCase,
             GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase,
             CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase,
-            UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase
+            UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase,
+            DeleteServiceVolumeMountUseCase deleteServiceVolumeMountUseCase
     ) {
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
         this.createServicePortMappingUseCase = createServicePortMappingUseCase;
@@ -49,6 +52,7 @@ public class ServiceRuntimeConfigurationController {
         this.getServiceVolumeMountsUseCase = getServiceVolumeMountsUseCase;
         this.createServiceVolumeMountUseCase = createServiceVolumeMountUseCase;
         this.updateServiceVolumeMountUseCase = updateServiceVolumeMountUseCase;
+        this.deleteServiceVolumeMountUseCase = deleteServiceVolumeMountUseCase;
     }
 
     @GetMapping("/port-mappings")
@@ -209,6 +213,35 @@ public class ServiceRuntimeConfigurationController {
                 case UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.VolumeMountNotFound _ ->
                         ResponseEntity.notFound().build();
                 case UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/volume-mounts")
+    public ResponseEntity<Void> deleteVolumeMount(
+            @PathVariable String serviceName,
+            @RequestParam String targetPath
+    ) {
+        try {
+            DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult result =
+                    deleteServiceVolumeMountUseCase.deleteServiceVolumeMount(
+                            new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountCommand(
+                                    new ServiceName(serviceName),
+                                    new VolumeMount.Target(targetPath)
+                            )
+                    );
+
+            return switch (result) {
+                case DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Success _ ->
+                        ResponseEntity.noContent().build();
+                case DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.VolumeMountNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure _ ->
                         ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             };
         } catch (IllegalArgumentException | NullPointerException _) {

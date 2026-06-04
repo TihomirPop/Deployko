@@ -19,6 +19,7 @@ import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
@@ -342,6 +343,52 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.VolumeMountNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isEqualTo(2);
+    }
+
+    @Test
+    void delete_volume_mount_deletes_mount_when_service_and_mount_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult result = volumeMounts.deleteVolumeMount(
+                service.name(),
+                new VolumeMount.Target("/app/config")
+        );
+
+        assertThat(result).isInstanceOf(DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Deleted.class);
+        assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isEqualTo(1);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_VOLUME_MOUNTS)
+                        .where(SERVICE_VOLUME_MOUNTS.TARGET_PATH.eq("/app/config"))
+        )).isFalse();
+    }
+
+    @Test
+    void delete_volume_mount_returns_service_not_found_when_service_does_not_exist() {
+        DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult result = volumeMounts.deleteVolumeMount(
+                new ServiceName("missing-api"),
+                new VolumeMount.Target("/app/config")
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void delete_volume_mount_returns_volume_mount_not_found_when_mount_does_not_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult result = volumeMounts.deleteVolumeMount(
+                service.name(),
+                new VolumeMount.Target("/var/log/deployko")
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.VolumeMountNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isEqualTo(2);
     }
 
