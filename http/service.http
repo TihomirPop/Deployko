@@ -107,6 +107,15 @@ Content-Type: application/json
   "value": "staging"
 }
 
+### Delete environment variable
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/environment-variables/{{environmentVariableKey}}
+
+### Delete environment variable missing service
+DELETE {{host}}/services/missing-service/runtime-configuration/environment-variables/{{environmentVariableKey}}
+
+### Delete missing environment variable
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/environment-variables/MISSING_ENV
+
 ### Get port mappings
 GET {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings
 

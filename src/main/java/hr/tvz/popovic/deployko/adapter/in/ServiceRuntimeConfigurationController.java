@@ -9,6 +9,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
@@ -37,6 +38,7 @@ public class ServiceRuntimeConfigurationController {
     private final GetServiceEnvironmentVariablesUseCase getServiceEnvironmentVariablesUseCase;
     private final CreateServiceEnvironmentVariableUseCase createServiceEnvironmentVariableUseCase;
     private final UpdateServiceEnvironmentVariableUseCase updateServiceEnvironmentVariableUseCase;
+    private final DeleteServiceEnvironmentVariableUseCase deleteServiceEnvironmentVariableUseCase;
     private final CreateServicePortMappingUseCase createServicePortMappingUseCase;
     private final DeleteServicePortMappingUseCase deleteServicePortMappingUseCase;
     private final GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase;
@@ -48,6 +50,7 @@ public class ServiceRuntimeConfigurationController {
             GetServiceEnvironmentVariablesUseCase getServiceEnvironmentVariablesUseCase,
             CreateServiceEnvironmentVariableUseCase createServiceEnvironmentVariableUseCase,
             UpdateServiceEnvironmentVariableUseCase updateServiceEnvironmentVariableUseCase,
+            DeleteServiceEnvironmentVariableUseCase deleteServiceEnvironmentVariableUseCase,
             GetServicePortMappingsUseCase getServicePortMappingsUseCase,
             CreateServicePortMappingUseCase createServicePortMappingUseCase,
             DeleteServicePortMappingUseCase deleteServicePortMappingUseCase,
@@ -59,6 +62,7 @@ public class ServiceRuntimeConfigurationController {
         this.getServiceEnvironmentVariablesUseCase = getServiceEnvironmentVariablesUseCase;
         this.createServiceEnvironmentVariableUseCase = createServiceEnvironmentVariableUseCase;
         this.updateServiceEnvironmentVariableUseCase = updateServiceEnvironmentVariableUseCase;
+        this.deleteServiceEnvironmentVariableUseCase = deleteServiceEnvironmentVariableUseCase;
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
         this.createServicePortMappingUseCase = createServicePortMappingUseCase;
         this.deleteServicePortMappingUseCase = deleteServicePortMappingUseCase;
@@ -145,6 +149,35 @@ public class ServiceRuntimeConfigurationController {
                 case UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.EnvironmentVariableNotFound _ ->
                         ResponseEntity.notFound().build();
                 case UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/environment-variables/{key}")
+    public ResponseEntity<Void> deleteEnvironmentVariable(
+            @PathVariable String serviceName,
+            @PathVariable String key
+    ) {
+        try {
+            DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult result =
+                    deleteServiceEnvironmentVariableUseCase.deleteServiceEnvironmentVariable(
+                            new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableCommand(
+                                    new ServiceName(serviceName),
+                                    new EnvironmentVariables.Key(key)
+                            )
+                    );
+
+            return switch (result) {
+                case DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Success _ ->
+                        ResponseEntity.noContent().build();
+                case DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.EnvironmentVariableNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure _ ->
                         ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             };
         } catch (IllegalArgumentException | NullPointerException _) {

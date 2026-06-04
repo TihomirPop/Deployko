@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
 import java.util.Objects;
@@ -19,7 +20,7 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 @Component
 public final class ServiceEnvironmentVariablePersistenceAdapter
         implements FindServiceEnvironmentVariablesPort, CreateServiceEnvironmentVariablePort,
-        UpdateServiceEnvironmentVariablePort {
+        UpdateServiceEnvironmentVariablePort, DeleteServiceEnvironmentVariablePort {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceEnvironmentVariablePersistenceAdapter.class);
 
@@ -113,6 +114,37 @@ public final class ServiceEnvironmentVariablePersistenceAdapter
         } catch (DataAccessException exception) {
             log.error("error while updating service environment variable", exception);
             return new UpdateServiceEnvironmentVariableResult.Failure();
+        }
+    }
+
+    @Override
+    public DeleteServiceEnvironmentVariableResult deleteEnvironmentVariable(
+            ServiceName serviceName,
+            EnvironmentVariables.Key key
+    ) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+        Objects.requireNonNull(key, "key must not be null");
+
+        try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new DeleteServiceEnvironmentVariableResult.ServiceNotFound();
+            }
+
+            int deletedRows = dsl
+                    .deleteFrom(SERVICE_ENVIRONMENT_VARIABLES)
+                    .where(SERVICE_ENVIRONMENT_VARIABLES.SERVICE_ID.eq(serviceId.get()))
+                    .and(SERVICE_ENVIRONMENT_VARIABLES.KEY.eq(key.value()))
+                    .execute();
+
+            return switch (deletedRows) {
+                case 0 -> new DeleteServiceEnvironmentVariableResult.EnvironmentVariableNotFound();
+                case 1 -> new DeleteServiceEnvironmentVariableResult.Deleted();
+                default -> new DeleteServiceEnvironmentVariableResult.Failure();
+            };
+        } catch (DataAccessException exception) {
+            log.error("error while deleting service environment variable", exception);
+            return new DeleteServiceEnvironmentVariableResult.Failure();
         }
     }
 

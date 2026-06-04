@@ -8,6 +8,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
@@ -220,6 +221,76 @@ class ServiceRuntimeConfigurationControllerTest {
                 )
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validUpdateEnvironmentVariableRequest()))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    void deletes_environment_variable_and_returns_no_content() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Success()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/environment-variables/{key}",
+                        "deployko-api",
+                        "APP_ENV"
+                ))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void returns_not_found_when_deleting_environment_variable_for_missing_service() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.ServiceNotFound()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/environment-variables/{key}",
+                        "missing-api",
+                        "APP_ENV"
+                ))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_not_found_when_deleting_missing_environment_variable() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.EnvironmentVariableNotFound()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/environment-variables/{key}",
+                        "deployko-api",
+                        "APP_ENV"
+                ))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_bad_request_when_deleting_environment_variable_with_invalid_key() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/environment-variables/{key}",
+                        "deployko-api",
+                        "APP-ENV"
+                ))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_internal_server_error_when_deleting_environment_variable_fails_unexpectedly() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/environment-variables/{key}",
+                        "deployko-api",
+                        "APP_ENV"
+                ))
                 .andExpect(status().isInternalServerError());
     }
 
@@ -759,6 +830,7 @@ class ServiceRuntimeConfigurationControllerTest {
                         useCases,
                         useCases,
                         useCases,
+                        useCases,
                         useCases
                 ))
                 .build();
@@ -817,6 +889,7 @@ class ServiceRuntimeConfigurationControllerTest {
             GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult getEnvironmentVariablesResult,
             CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult createEnvironmentVariableResult,
             UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult updateEnvironmentVariableResult,
+            DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult deleteEnvironmentVariableResult,
             GetServicePortMappingsUseCase.GetServicePortMappingsResult getPortMappingsResult,
             CreateServicePortMappingUseCase.CreateServicePortMappingResult createPortMappingResult,
             DeleteServicePortMappingUseCase.DeleteServicePortMappingResult deletePortMappingResult,
@@ -826,7 +899,7 @@ class ServiceRuntimeConfigurationControllerTest {
             DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult deleteVolumeMountResult
     ) implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase,
             GetServiceEnvironmentVariablesUseCase, CreateServiceEnvironmentVariableUseCase,
-            UpdateServiceEnvironmentVariableUseCase,
+            UpdateServiceEnvironmentVariableUseCase, DeleteServiceEnvironmentVariableUseCase,
             GetServiceVolumeMountsUseCase, CreateServiceVolumeMountUseCase, UpdateServiceVolumeMountUseCase,
             DeleteServiceVolumeMountUseCase {
 
@@ -837,6 +910,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     getEnvironmentVariablesResult,
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -854,6 +928,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     createEnvironmentVariableResult,
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -871,6 +946,25 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     updateEnvironmentVariableResult,
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
+                    new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
+                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
+                    new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
+                    new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+            );
+        }
+
+        private StubServiceRuntimeConfigurationUseCases(
+                DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult deleteEnvironmentVariableResult
+        ) {
+            this(
+                    new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
+                    new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
+                    new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    deleteEnvironmentVariableResult,
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -888,6 +982,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     getPortMappingsResult,
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -906,6 +1001,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     getPortMappingsResult,
                     createPortMappingResult,
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -923,6 +1019,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     deletePortMappingResult,
@@ -940,6 +1037,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -957,6 +1055,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -974,6 +1073,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -991,6 +1091,7 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
                     new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
                     new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
                     new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
@@ -1035,6 +1136,13 @@ class ServiceRuntimeConfigurationControllerTest {
                 UpdateServiceEnvironmentVariableCommand command
         ) {
             return updateEnvironmentVariableResult;
+        }
+
+        @Override
+        public DeleteServiceEnvironmentVariableResult deleteServiceEnvironmentVariable(
+                DeleteServiceEnvironmentVariableCommand command
+        ) {
+            return deleteEnvironmentVariableResult;
         }
 
         @Override

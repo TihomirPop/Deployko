@@ -21,6 +21,7 @@ import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
@@ -335,6 +336,56 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult.EnvironmentVariableNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_ENVIRONMENT_VARIABLES)).isEqualTo(2);
+    }
+
+    @Test
+    void delete_environment_variable_deletes_variable_when_service_and_key_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult result =
+                environmentVariables.deleteEnvironmentVariable(
+                        service.name(),
+                        new EnvironmentVariables.Key("APP_ENV")
+                );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.Deleted.class);
+        assertThat(dsl.fetchCount(SERVICE_ENVIRONMENT_VARIABLES)).isEqualTo(1);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_ENVIRONMENT_VARIABLES)
+                        .where(SERVICE_ENVIRONMENT_VARIABLES.KEY.eq("APP_ENV"))
+        )).isFalse();
+    }
+
+    @Test
+    void delete_environment_variable_returns_service_not_found_when_service_does_not_exist() {
+        DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult result =
+                environmentVariables.deleteEnvironmentVariable(
+                        new ServiceName("missing-api"),
+                        new EnvironmentVariables.Key("APP_ENV")
+                );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void delete_environment_variable_returns_variable_not_found_when_key_does_not_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult result =
+                environmentVariables.deleteEnvironmentVariable(
+                        service.name(),
+                        new EnvironmentVariables.Key("MISSING_ENV")
+                );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.EnvironmentVariableNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_ENVIRONMENT_VARIABLES)).isEqualTo(2);
     }
 

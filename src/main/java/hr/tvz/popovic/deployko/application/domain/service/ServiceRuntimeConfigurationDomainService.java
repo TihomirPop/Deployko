@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.application.domain.service;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
@@ -13,6 +14,7 @@ import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCa
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
@@ -24,7 +26,7 @@ import java.util.Objects;
 
 public final class ServiceRuntimeConfigurationDomainService
         implements GetServiceEnvironmentVariablesUseCase, CreateServiceEnvironmentVariableUseCase,
-        UpdateServiceEnvironmentVariableUseCase,
+        UpdateServiceEnvironmentVariableUseCase, DeleteServiceEnvironmentVariableUseCase,
         GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase,
         GetServiceVolumeMountsUseCase, CreateServiceVolumeMountUseCase, UpdateServiceVolumeMountUseCase,
         DeleteServiceVolumeMountUseCase {
@@ -32,6 +34,7 @@ public final class ServiceRuntimeConfigurationDomainService
     private final FindServiceEnvironmentVariablesPort findServiceEnvironmentVariablesPort;
     private final CreateServiceEnvironmentVariablePort createServiceEnvironmentVariablePort;
     private final UpdateServiceEnvironmentVariablePort updateServiceEnvironmentVariablePort;
+    private final DeleteServiceEnvironmentVariablePort deleteServiceEnvironmentVariablePort;
     private final FindServicePortMappingsPort findServicePortMappingsPort;
     private final CreateServicePortMappingPort createServicePortMappingPort;
     private final DeleteServicePortMappingPort deleteServicePortMappingPort;
@@ -44,6 +47,7 @@ public final class ServiceRuntimeConfigurationDomainService
             FindServiceEnvironmentVariablesPort findServiceEnvironmentVariablesPort,
             CreateServiceEnvironmentVariablePort createServiceEnvironmentVariablePort,
             UpdateServiceEnvironmentVariablePort updateServiceEnvironmentVariablePort,
+            DeleteServiceEnvironmentVariablePort deleteServiceEnvironmentVariablePort,
             FindServicePortMappingsPort findServicePortMappingsPort,
             CreateServicePortMappingPort createServicePortMappingPort,
             DeleteServicePortMappingPort deleteServicePortMappingPort,
@@ -63,6 +67,10 @@ public final class ServiceRuntimeConfigurationDomainService
         this.updateServiceEnvironmentVariablePort = Objects.requireNonNull(
                 updateServiceEnvironmentVariablePort,
                 "updateServiceEnvironmentVariablePort must not be null"
+        );
+        this.deleteServiceEnvironmentVariablePort = Objects.requireNonNull(
+                deleteServiceEnvironmentVariablePort,
+                "deleteServiceEnvironmentVariablePort must not be null"
         );
         this.findServicePortMappingsPort = Objects.requireNonNull(
                 findServicePortMappingsPort,
@@ -92,6 +100,27 @@ public final class ServiceRuntimeConfigurationDomainService
                 deleteServiceVolumeMountPort,
                 "deleteServiceVolumeMountPort must not be null"
         );
+    }
+
+    @Override
+    public DeleteServiceEnvironmentVariableResult deleteServiceEnvironmentVariable(
+            DeleteServiceEnvironmentVariableCommand command
+    ) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        return switch (deleteServiceEnvironmentVariablePort.deleteEnvironmentVariable(
+                command.serviceName(),
+                command.key()
+        )) {
+            case DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.Deleted _ ->
+                    new DeleteServiceEnvironmentVariableResult.Success();
+            case DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.ServiceNotFound _ ->
+                    new DeleteServiceEnvironmentVariableResult.ServiceNotFound();
+            case DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.EnvironmentVariableNotFound _ ->
+                    new DeleteServiceEnvironmentVariableResult.EnvironmentVariableNotFound();
+            case DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.Failure _ ->
+                    new DeleteServiceEnvironmentVariableResult.Failure();
+        };
     }
 
     @Override
