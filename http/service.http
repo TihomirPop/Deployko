@@ -3,6 +3,10 @@
 @serviceName = deployko-nginx
 @imageRepository = docker.io/library/nginx
 @imageVersion = latest
+@hostPort = 8080
+@hostProtocol = TCP
+@containerPort = 80
+@containerProtocol = TCP
 
 ### Create service
 POST {{host}}/services
@@ -39,6 +43,65 @@ DELETE {{host}}/services/missing-service
 
 ### Delete invalid service
 DELETE {{host}}/services/Deployko Api
+
+### Get port mappings
+GET {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings
+
+### Get port mappings missing service
+GET {{host}}/services/missing-service/runtime-configuration/port-mappings
+
+### Create port mapping
+POST {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings
+Content-Type: application/json
+
+{
+  "hostPort": {{hostPort}},
+  "hostProtocol": "{{hostProtocol}}",
+  "containerPort": {{containerPort}},
+  "containerProtocol": "{{containerProtocol}}"
+}
+
+### Create duplicate port mapping
+POST {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings
+Content-Type: application/json
+
+{
+  "hostPort": {{hostPort}},
+  "hostProtocol": "{{hostProtocol}}",
+  "containerPort": {{containerPort}},
+  "containerProtocol": "{{containerProtocol}}"
+}
+
+### Create port mapping missing service
+POST {{host}}/services/missing-service/runtime-configuration/port-mappings
+Content-Type: application/json
+
+{
+  "hostPort": {{hostPort}},
+  "hostProtocol": "{{hostProtocol}}",
+  "containerPort": {{containerPort}},
+  "containerProtocol": "{{containerProtocol}}"
+}
+
+### Create invalid port mapping
+POST {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings
+Content-Type: application/json
+
+{
+  "hostPort": 70000,
+  "hostProtocol": "{{hostProtocol}}",
+  "containerPort": {{containerPort}},
+  "containerProtocol": "{{containerProtocol}}"
+}
+
+### Delete port mapping
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings/{{hostProtocol}}/{{hostPort}}
+
+### Delete port mapping missing service
+DELETE {{host}}/services/missing-service/runtime-configuration/port-mappings/{{hostProtocol}}/{{hostPort}}
+
+### Delete missing port mapping
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings/{{hostProtocol}}/8081
 
 ### Deploy
 POST {{host}}/services/{{serviceName}}/runtime/deploy
