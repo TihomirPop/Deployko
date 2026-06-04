@@ -25,6 +25,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
@@ -280,6 +281,60 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult.AlreadyExists.class);
+        assertThat(dsl.fetchCount(SERVICE_ENVIRONMENT_VARIABLES)).isEqualTo(2);
+    }
+
+    @Test
+    void update_environment_variable_updates_variable_when_service_and_key_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult result =
+                environmentVariables.updateEnvironmentVariable(
+                        service.name(),
+                        new EnvironmentVariables.Key("APP_ENV"),
+                        new EnvironmentVariables.Value("staging")
+                );
+
+        assertThat(result)
+                .isInstanceOf(UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult.Updated.class);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_ENVIRONMENT_VARIABLES)
+                        .where(SERVICE_ENVIRONMENT_VARIABLES.KEY.eq("APP_ENV"))
+                        .and(SERVICE_ENVIRONMENT_VARIABLES.VALUE.eq("staging"))
+        )).isTrue();
+        assertThat(dsl.fetchCount(SERVICE_ENVIRONMENT_VARIABLES)).isEqualTo(2);
+    }
+
+    @Test
+    void update_environment_variable_returns_service_not_found_when_service_does_not_exist() {
+        UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult result =
+                environmentVariables.updateEnvironmentVariable(
+                        new ServiceName("missing-api"),
+                        new EnvironmentVariables.Key("APP_ENV"),
+                        new EnvironmentVariables.Value("staging")
+                );
+
+        assertThat(result)
+                .isInstanceOf(UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void update_environment_variable_returns_variable_not_found_when_key_does_not_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult result =
+                environmentVariables.updateEnvironmentVariable(
+                        service.name(),
+                        new EnvironmentVariables.Key("MISSING_ENV"),
+                        new EnvironmentVariables.Value("staging")
+                );
+
+        assertThat(result)
+                .isInstanceOf(UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult.EnvironmentVariableNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_ENVIRONMENT_VARIABLES)).isEqualTo(2);
     }
 

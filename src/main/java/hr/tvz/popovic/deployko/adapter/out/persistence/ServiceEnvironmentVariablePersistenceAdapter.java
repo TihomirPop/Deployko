@@ -4,6 +4,7 @@ import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,7 +18,8 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class ServiceEnvironmentVariablePersistenceAdapter
-        implements FindServiceEnvironmentVariablesPort, CreateServiceEnvironmentVariablePort {
+        implements FindServiceEnvironmentVariablesPort, CreateServiceEnvironmentVariablePort,
+        UpdateServiceEnvironmentVariablePort {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceEnvironmentVariablePersistenceAdapter.class);
 
@@ -77,6 +79,40 @@ public final class ServiceEnvironmentVariablePersistenceAdapter
         } catch (DataAccessException exception) {
             log.error("error while creating service environment variable", exception);
             return new CreateServiceEnvironmentVariableResult.Failure();
+        }
+    }
+
+    @Override
+    public UpdateServiceEnvironmentVariableResult updateEnvironmentVariable(
+            ServiceName serviceName,
+            EnvironmentVariables.Key key,
+            EnvironmentVariables.Value value
+    ) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+        Objects.requireNonNull(key, "key must not be null");
+        Objects.requireNonNull(value, "value must not be null");
+
+        try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new UpdateServiceEnvironmentVariableResult.ServiceNotFound();
+            }
+
+            int updatedRows = dsl
+                    .update(SERVICE_ENVIRONMENT_VARIABLES)
+                    .set(SERVICE_ENVIRONMENT_VARIABLES.VALUE, value.value())
+                    .where(SERVICE_ENVIRONMENT_VARIABLES.SERVICE_ID.eq(serviceId.get()))
+                    .and(SERVICE_ENVIRONMENT_VARIABLES.KEY.eq(key.value()))
+                    .execute();
+
+            return switch (updatedRows) {
+                case 0 -> new UpdateServiceEnvironmentVariableResult.EnvironmentVariableNotFound();
+                case 1 -> new UpdateServiceEnvironmentVariableResult.Updated();
+                default -> new UpdateServiceEnvironmentVariableResult.Failure();
+            };
+        } catch (DataAccessException exception) {
+            log.error("error while updating service environment variable", exception);
+            return new UpdateServiceEnvironmentVariableResult.Failure();
         }
     }
 

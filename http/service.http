@@ -83,6 +83,30 @@ Content-Type: application/json
   "value": "{{environmentVariableValue}}"
 }
 
+### Update environment variable
+PUT {{host}}/services/{{serviceName}}/runtime-configuration/environment-variables/{{environmentVariableKey}}
+Content-Type: application/json
+
+{
+  "value": "staging"
+}
+
+### Update environment variable missing service
+PUT {{host}}/services/missing-service/runtime-configuration/environment-variables/{{environmentVariableKey}}
+Content-Type: application/json
+
+{
+  "value": "staging"
+}
+
+### Update missing environment variable
+PUT {{host}}/services/{{serviceName}}/runtime-configuration/environment-variables/MISSING_ENV
+Content-Type: application/json
+
+{
+  "value": "staging"
+}
+
 ### Get port mappings
 GET {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings
 

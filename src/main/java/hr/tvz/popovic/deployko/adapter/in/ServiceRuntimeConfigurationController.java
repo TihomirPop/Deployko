@@ -14,6 +14,7 @@ import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCa
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.UpdateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ public class ServiceRuntimeConfigurationController {
     private final GetServicePortMappingsUseCase getServicePortMappingsUseCase;
     private final GetServiceEnvironmentVariablesUseCase getServiceEnvironmentVariablesUseCase;
     private final CreateServiceEnvironmentVariableUseCase createServiceEnvironmentVariableUseCase;
+    private final UpdateServiceEnvironmentVariableUseCase updateServiceEnvironmentVariableUseCase;
     private final CreateServicePortMappingUseCase createServicePortMappingUseCase;
     private final DeleteServicePortMappingUseCase deleteServicePortMappingUseCase;
     private final GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase;
@@ -45,6 +47,7 @@ public class ServiceRuntimeConfigurationController {
     public ServiceRuntimeConfigurationController(
             GetServiceEnvironmentVariablesUseCase getServiceEnvironmentVariablesUseCase,
             CreateServiceEnvironmentVariableUseCase createServiceEnvironmentVariableUseCase,
+            UpdateServiceEnvironmentVariableUseCase updateServiceEnvironmentVariableUseCase,
             GetServicePortMappingsUseCase getServicePortMappingsUseCase,
             CreateServicePortMappingUseCase createServicePortMappingUseCase,
             DeleteServicePortMappingUseCase deleteServicePortMappingUseCase,
@@ -55,6 +58,7 @@ public class ServiceRuntimeConfigurationController {
     ) {
         this.getServiceEnvironmentVariablesUseCase = getServiceEnvironmentVariablesUseCase;
         this.createServiceEnvironmentVariableUseCase = createServiceEnvironmentVariableUseCase;
+        this.updateServiceEnvironmentVariableUseCase = updateServiceEnvironmentVariableUseCase;
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
         this.createServicePortMappingUseCase = createServicePortMappingUseCase;
         this.deleteServicePortMappingUseCase = deleteServicePortMappingUseCase;
@@ -110,6 +114,37 @@ public class ServiceRuntimeConfigurationController {
                 case CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.AlreadyExists _ ->
                         ResponseEntity.status(HttpStatus.CONFLICT).build();
                 case CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PutMapping("/environment-variables/{key}")
+    public ResponseEntity<Void> updateEnvironmentVariable(
+            @PathVariable String serviceName,
+            @PathVariable String key,
+            @RequestBody UpdateEnvironmentVariableHttpRequest request
+    ) {
+        try {
+            UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult result =
+                    updateServiceEnvironmentVariableUseCase.updateServiceEnvironmentVariable(
+                            new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableCommand(
+                                    new ServiceName(serviceName),
+                                    new EnvironmentVariables.Key(key),
+                                    new EnvironmentVariables.Value(request.value())
+                            )
+                    );
+
+            return switch (result) {
+                case UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Success _ ->
+                        ResponseEntity.noContent().build();
+                case UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.EnvironmentVariableNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure _ ->
                         ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             };
         } catch (IllegalArgumentException | NullPointerException _) {
@@ -328,6 +363,9 @@ public class ServiceRuntimeConfigurationController {
     }
 
     public record CreateEnvironmentVariableHttpRequest(String key, String value) {
+    }
+
+    public record UpdateEnvironmentVariableHttpRequest(String value) {
     }
 
     public record CreateVolumeMountHttpRequest(
