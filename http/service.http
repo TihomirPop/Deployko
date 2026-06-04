@@ -7,10 +7,10 @@
 @hostProtocol = TCP
 @containerPort = 80
 @containerProtocol = TCP
-@targetPath = /app/config
+@targetPath = /usr/share/nginx/html
 @volumeMountType = BIND
-@volumeMountSource = /opt/deployko/config
-@volumeMountReadOnly = true
+@volumeMountSource = /home/tpopovic/dev/deployko-nginx
+@volumeMountReadOnly = false
 
 ### Create service
 POST {{host}}/services
@@ -162,9 +162,9 @@ PUT {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?target
 Content-Type: application/json
 
 {
-  "mountType": "VOLUME",
-  "source": "deployko_config",
-  "readOnly": false
+  "mountType": "{{volumeMountType}}",
+  "source": "{{volumeMountSource}}",
+  "readOnly": {{volumeMountReadOnly}}
 }
 
 ### Update volume mount missing service
@@ -172,9 +172,9 @@ PUT {{host}}/services/missing-service/runtime-configuration/volume-mounts?target
 Content-Type: application/json
 
 {
-  "mountType": "VOLUME",
-  "source": "deployko_config",
-  "readOnly": false
+  "mountType": "{{volumeMountType}}",
+  "source": "{{volumeMountSource}}",
+  "readOnly": {{volumeMountReadOnly}}
 }
 
 ### Update missing volume mount
