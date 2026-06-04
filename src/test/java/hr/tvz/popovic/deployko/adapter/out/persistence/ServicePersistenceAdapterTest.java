@@ -17,6 +17,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.flywaydb.core.Flyway;
@@ -157,6 +158,27 @@ class ServicePersistenceAdapterTest {
         FindServiceDefinitionPort.FindServiceDefinitionResult result = adapter.findByName(new ServiceName("missing-api"));
 
         assertThat(result).isInstanceOf(FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound.class);
+    }
+
+    @Test
+    void find_port_mappings_returns_mappings_when_service_exists() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+
+        FindServicePortMappingsPort.FindServicePortMappingsResult result = adapter.findPortMappings(service.name());
+
+        assertThat(result).isInstanceOf(FindServicePortMappingsPort.FindServicePortMappingsResult.Found.class);
+        FindServicePortMappingsPort.FindServicePortMappingsResult.Found found =
+                (FindServicePortMappingsPort.FindServicePortMappingsResult.Found) result;
+        assertThat(found.portMappings()).isEqualTo(service.runtimeConfiguration().portMappings());
+    }
+
+    @Test
+    void find_port_mappings_returns_service_not_found_when_service_does_not_exist() {
+        FindServicePortMappingsPort.FindServicePortMappingsResult result =
+                adapter.findPortMappings(new ServiceName("missing-api"));
+
+        assertThat(result).isInstanceOf(FindServicePortMappingsPort.FindServicePortMappingsResult.ServiceNotFound.class);
     }
 
     @Test

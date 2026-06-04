@@ -16,6 +16,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import java.time.OffsetDateTime;
@@ -42,7 +43,7 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 @Component
 public final class ServicePersistenceAdapter
         implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, UpsertDesiredDeploymentPort,
-        UpdateDesiredDeploymentStatePort {
+        UpdateDesiredDeploymentStatePort, FindServicePortMappingsPort {
 
     private static final String BIND_MOUNT_TYPE = "BIND";
     private static final String VOLUME_MOUNT_TYPE = "VOLUME";
@@ -168,6 +169,23 @@ public final class ServicePersistenceAdapter
             };
         } catch (DataAccessException _) {
             return new DeleteServiceByNameResult.Failure();
+        }
+    }
+
+    @Override
+    public FindServicePortMappingsResult findPortMappings(ServiceName serviceName) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+
+        try {
+            Optional<UUID> serviceId = findServiceId(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new FindServicePortMappingsResult.ServiceNotFound();
+            }
+
+            return new FindServicePortMappingsResult.Found(findPortMappings(serviceId.get()));
+        } catch (DataAccessException exception) {
+            log.error("error while finding service port mappings", exception);
+            return new FindServicePortMappingsResult.Failure();
         }
     }
 
