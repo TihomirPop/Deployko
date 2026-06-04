@@ -277,6 +277,9 @@ DELETE {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?tar
 ### Delete invalid volume mount
 DELETE {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?targetPath=app/config
 
+### Get service versions
+GET {{host}}/services/{{serviceName}}/versions
+
 ### Deploy
 POST {{host}}/services/{{serviceName}}/runtime/deploy
 Content-Type: application/json

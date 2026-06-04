@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.adapter.out.docker;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.PullImageResultCallback;
 import com.github.dockerjava.api.exception.DockerException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
@@ -62,7 +63,7 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
         } catch (NotFoundException imageMissing) {
             try {
                 dockerClient.pullImageCmd(imageReference)
-                        .exec(new com.github.dockerjava.api.command.PullImageResultCallback())
+                        .exec(new PullImageResultCallback())
                         .awaitCompletion(5, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
