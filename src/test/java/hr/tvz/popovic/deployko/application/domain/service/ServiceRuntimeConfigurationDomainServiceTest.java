@@ -4,8 +4,10 @@ import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import org.junit.jupiter.api.Test;
 
@@ -118,17 +120,83 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 .isInstanceOf(CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure.class);
     }
 
+    @Test
+    void delete_port_mapping_returns_success_when_mapping_is_deleted() {
+        ServiceRuntimeConfigurationDomainService service = service(
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Deleted()
+        );
+
+        DeleteServicePortMappingUseCase.DeleteServicePortMappingResult result = service.deleteServicePortMapping(
+                deleteCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Success.class);
+    }
+
+    @Test
+    void delete_port_mapping_returns_service_not_found_when_service_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = service(
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.ServiceNotFound()
+        );
+
+        DeleteServicePortMappingUseCase.DeleteServicePortMappingResult result = service.deleteServicePortMapping(
+                deleteCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void delete_port_mapping_returns_port_mapping_not_found_when_mapping_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = service(
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.PortMappingNotFound()
+        );
+
+        DeleteServicePortMappingUseCase.DeleteServicePortMappingResult result = service.deleteServicePortMapping(
+                deleteCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.PortMappingNotFound.class);
+    }
+
+    @Test
+    void delete_port_mapping_returns_failure_when_persistence_fails() {
+        ServiceRuntimeConfigurationDomainService service = service(
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure()
+        );
+
+        DeleteServicePortMappingUseCase.DeleteServicePortMappingResult result = service.deleteServicePortMapping(
+                deleteCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure.class);
+    }
+
     private static ServiceRuntimeConfigurationDomainService service(FindServicePortMappingsPort findPort) {
         return new ServiceRuntimeConfigurationDomainService(
                 findPort,
-                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure()
+                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure()
         );
     }
 
     private static ServiceRuntimeConfigurationDomainService service(CreateServicePortMappingPort createPort) {
         return new ServiceRuntimeConfigurationDomainService(
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
-                createPort
+                createPort,
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure()
+        );
+    }
+
+    private static ServiceRuntimeConfigurationDomainService service(DeleteServicePortMappingPort deletePort) {
+        return new ServiceRuntimeConfigurationDomainService(
+                _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
+                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
+                deletePort
         );
     }
 
@@ -137,6 +205,13 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 SERVICE_NAME,
                 new Port(8080),
                 new Port(80)
+        );
+    }
+
+    private static DeleteServicePortMappingUseCase.DeleteServicePortMappingCommand deleteCommand() {
+        return new DeleteServicePortMappingUseCase.DeleteServicePortMappingCommand(
+                SERVICE_NAME,
+                new Port(8080)
         );
     }
 }

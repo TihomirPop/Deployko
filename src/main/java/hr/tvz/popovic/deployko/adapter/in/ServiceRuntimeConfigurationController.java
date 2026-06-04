@@ -4,10 +4,12 @@ import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,13 +23,16 @@ public class ServiceRuntimeConfigurationController {
 
     private final GetServicePortMappingsUseCase getServicePortMappingsUseCase;
     private final CreateServicePortMappingUseCase createServicePortMappingUseCase;
+    private final DeleteServicePortMappingUseCase deleteServicePortMappingUseCase;
 
     public ServiceRuntimeConfigurationController(
             GetServicePortMappingsUseCase getServicePortMappingsUseCase,
-            CreateServicePortMappingUseCase createServicePortMappingUseCase
+            CreateServicePortMappingUseCase createServicePortMappingUseCase,
+            DeleteServicePortMappingUseCase deleteServicePortMappingUseCase
     ) {
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
         this.createServicePortMappingUseCase = createServicePortMappingUseCase;
+        this.deleteServicePortMappingUseCase = deleteServicePortMappingUseCase;
     }
 
     @GetMapping("/port-mappings")
@@ -76,6 +81,36 @@ public class ServiceRuntimeConfigurationController {
                 case CreateServicePortMappingUseCase.CreateServicePortMappingResult.AlreadyExists _ ->
                         ResponseEntity.status(HttpStatus.CONFLICT).build();
                 case CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/port-mappings/{hostProtocol}/{hostPort}")
+    public ResponseEntity<Void> deletePortMapping(
+            @PathVariable String serviceName,
+            @PathVariable String hostProtocol,
+            @PathVariable int hostPort
+    ) {
+        try {
+            DeleteServicePortMappingUseCase.DeleteServicePortMappingResult result =
+                    deleteServicePortMappingUseCase.deleteServicePortMapping(
+                            new DeleteServicePortMappingUseCase.DeleteServicePortMappingCommand(
+                                    new ServiceName(serviceName),
+                                    new Port(hostPort, Port.Protocol.valueOf(hostProtocol))
+                            )
+                    );
+
+            return switch (result) {
+                case DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Success _ ->
+                        ResponseEntity.noContent().build();
+                case DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.PortMappingNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure _ ->
                         ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             };
         } catch (IllegalArgumentException | NullPointerException _) {

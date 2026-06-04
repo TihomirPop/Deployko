@@ -3,12 +3,14 @@ package hr.tvz.popovic.deployko.adapter.in;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -166,8 +168,100 @@ class ServiceRuntimeConfigurationControllerTest {
                 .andExpect(status().isInternalServerError());
     }
 
+    @Test
+    void deletes_port_mapping_and_returns_no_content() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Success()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/port-mappings/{hostProtocol}/{hostPort}",
+                        "deployko-api",
+                        "TCP",
+                        8080
+                ))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void returns_not_found_when_deleting_port_mapping_for_missing_service() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.ServiceNotFound()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/port-mappings/{hostProtocol}/{hostPort}",
+                        "missing-api",
+                        "TCP",
+                        8080
+                ))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_not_found_when_deleting_missing_port_mapping() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.PortMappingNotFound()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/port-mappings/{hostProtocol}/{hostPort}",
+                        "deployko-api",
+                        "TCP",
+                        8081
+                ))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_bad_request_when_deleting_port_mapping_with_invalid_protocol() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/port-mappings/{hostProtocol}/{hostPort}",
+                        "deployko-api",
+                        "HTTP",
+                        8080
+                ))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_bad_request_when_deleting_port_mapping_with_invalid_port() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/port-mappings/{hostProtocol}/{hostPort}",
+                        "deployko-api",
+                        "TCP",
+                        70000
+                ))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_internal_server_error_when_deleting_port_mapping_fails_unexpectedly() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/port-mappings/{hostProtocol}/{hostPort}",
+                        "deployko-api",
+                        "TCP",
+                        8080
+                ))
+                .andExpect(status().isInternalServerError());
+    }
+
     private static MockMvc mockMvc(StubServiceRuntimeConfigurationUseCases useCases) {
-        return MockMvcBuilders.standaloneSetup(new ServiceRuntimeConfigurationController(useCases, useCases)).build();
+        return MockMvcBuilders
+                .standaloneSetup(new ServiceRuntimeConfigurationController(useCases, useCases, useCases))
+                .build();
     }
 
     private static String validCreateRequest() {
@@ -183,15 +277,38 @@ class ServiceRuntimeConfigurationControllerTest {
 
     private record StubServiceRuntimeConfigurationUseCases(
             GetServicePortMappingsUseCase.GetServicePortMappingsResult getPortMappingsResult,
-            CreateServicePortMappingUseCase.CreateServicePortMappingResult createPortMappingResult
-    ) implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase {
+            CreateServicePortMappingUseCase.CreateServicePortMappingResult createPortMappingResult,
+            DeleteServicePortMappingUseCase.DeleteServicePortMappingResult deletePortMappingResult
+    ) implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase {
 
         private StubServiceRuntimeConfigurationUseCases(
                 GetServicePortMappingsUseCase.GetServicePortMappingsResult getPortMappingsResult
         ) {
             this(
                     getPortMappingsResult,
-                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure()
+                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure()
+            );
+        }
+
+        private StubServiceRuntimeConfigurationUseCases(
+                GetServicePortMappingsUseCase.GetServicePortMappingsResult getPortMappingsResult,
+                CreateServicePortMappingUseCase.CreateServicePortMappingResult createPortMappingResult
+        ) {
+            this(
+                    getPortMappingsResult,
+                    createPortMappingResult,
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure()
+            );
+        }
+
+        private StubServiceRuntimeConfigurationUseCases(
+                DeleteServicePortMappingUseCase.DeleteServicePortMappingResult deletePortMappingResult
+        ) {
+            this(
+                    new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
+                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
+                    deletePortMappingResult
             );
         }
 
@@ -203,6 +320,11 @@ class ServiceRuntimeConfigurationControllerTest {
         @Override
         public CreateServicePortMappingResult createServicePortMapping(CreateServicePortMappingCommand command) {
             return createPortMappingResult;
+        }
+
+        @Override
+        public DeleteServicePortMappingResult deleteServicePortMapping(DeleteServicePortMappingCommand command) {
+            return deletePortMappingResult;
         }
     }
 }

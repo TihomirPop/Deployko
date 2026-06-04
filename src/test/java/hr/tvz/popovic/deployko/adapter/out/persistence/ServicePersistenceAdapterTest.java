@@ -17,6 +17,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -248,6 +249,52 @@ class ServicePersistenceAdapterTest {
         );
 
         assertThat(result).isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.AlreadyExists.class);
+        assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isEqualTo(2);
+    }
+
+    @Test
+    void delete_port_mapping_deletes_mapping_when_service_and_mapping_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+
+        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = adapter.deletePortMapping(
+                service.name(),
+                new Port(8080)
+        );
+
+        assertThat(result).isInstanceOf(DeleteServicePortMappingPort.DeleteServicePortMappingResult.Deleted.class);
+        assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isEqualTo(1);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_PORT_MAPPINGS)
+                        .where(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(8080))
+                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq("TCP"))
+        )).isFalse();
+    }
+
+    @Test
+    void delete_port_mapping_returns_service_not_found_when_service_does_not_exist() {
+        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = adapter.deletePortMapping(
+                new ServiceName("missing-api"),
+                new Port(8080)
+        );
+
+        assertThat(result).isInstanceOf(DeleteServicePortMappingPort.DeleteServicePortMappingResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void delete_port_mapping_returns_port_mapping_not_found_when_mapping_does_not_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        adapter.create(service);
+
+        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = adapter.deletePortMapping(
+                service.name(),
+                new Port(8081)
+        );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServicePortMappingPort.DeleteServicePortMappingResult.PortMappingNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isEqualTo(2);
     }
 

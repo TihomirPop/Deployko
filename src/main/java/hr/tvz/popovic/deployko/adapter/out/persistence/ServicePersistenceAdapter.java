@@ -16,6 +16,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -44,7 +45,8 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 @Component
 public final class ServicePersistenceAdapter
         implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, UpsertDesiredDeploymentPort,
-        UpdateDesiredDeploymentStatePort, FindServicePortMappingsPort, CreateServicePortMappingPort {
+        UpdateDesiredDeploymentStatePort, FindServicePortMappingsPort, CreateServicePortMappingPort,
+        DeleteServicePortMappingPort {
 
     private static final String BIND_MOUNT_TYPE = "BIND";
     private static final String VOLUME_MOUNT_TYPE = "VOLUME";
@@ -217,6 +219,35 @@ public final class ServicePersistenceAdapter
         } catch (DataAccessException exception) {
             log.error("error while creating service port mapping", exception);
             return new CreateServicePortMappingResult.Failure();
+        }
+    }
+
+    @Override
+    public DeleteServicePortMappingResult deletePortMapping(ServiceName serviceName, Port hostPort) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+        Objects.requireNonNull(hostPort, "hostPort must not be null");
+
+        try {
+            Optional<UUID> serviceId = findServiceId(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new DeleteServicePortMappingResult.ServiceNotFound();
+            }
+
+            int deletedRows = dsl
+                    .deleteFrom(SERVICE_PORT_MAPPINGS)
+                    .where(SERVICE_PORT_MAPPINGS.SERVICE_ID.eq(serviceId.get()))
+                    .and(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(hostPort.value()))
+                    .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(hostPort.protocol().name()))
+                    .execute();
+
+            return switch (deletedRows) {
+                case 0 -> new DeleteServicePortMappingResult.PortMappingNotFound();
+                case 1 -> new DeleteServicePortMappingResult.Deleted();
+                default -> new DeleteServicePortMappingResult.Failure();
+            };
+        } catch (DataAccessException exception) {
+            log.error("error while deleting service port mapping", exception);
+            return new DeleteServicePortMappingResult.Failure();
         }
     }
 
