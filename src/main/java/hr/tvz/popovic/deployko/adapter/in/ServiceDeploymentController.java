@@ -47,6 +47,50 @@ public class ServiceDeploymentController {
         }
     }
 
+    @PostMapping("/start")
+    public ResponseEntity<Void> startService(@PathVariable String serviceName) {
+        try {
+            ServiceDeploymentUseCase.StartServiceResult result = serviceDeploymentUseCase.startService(
+                    new ServiceDeploymentUseCase.StartServiceCommand(new ServiceName(serviceName))
+            );
+
+            return switch (result) {
+                case ServiceDeploymentUseCase.StartServiceResult.Success _ -> ResponseEntity.noContent().build();
+                case ServiceDeploymentUseCase.StartServiceResult.ServiceNotFound _,
+                     ServiceDeploymentUseCase.StartServiceResult.NotDeployed _ -> ResponseEntity.notFound().build();
+                case ServiceDeploymentUseCase.StartServiceResult.Drift _ -> ResponseEntity.status(HttpStatus.CONFLICT).build();
+                case ServiceDeploymentUseCase.StartServiceResult.DesiredStateFailure _,
+                     ServiceDeploymentUseCase.StartServiceResult.DockerFailure _ -> ResponseEntity
+                        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/stop")
+    public ResponseEntity<Void> stopService(@PathVariable String serviceName) {
+        try {
+            ServiceDeploymentUseCase.StopServiceResult result = serviceDeploymentUseCase.stopService(
+                    new ServiceDeploymentUseCase.StopServiceCommand(new ServiceName(serviceName))
+            );
+
+            return switch (result) {
+                case ServiceDeploymentUseCase.StopServiceResult.Success _ -> ResponseEntity.noContent().build();
+                case ServiceDeploymentUseCase.StopServiceResult.ServiceNotFound _,
+                     ServiceDeploymentUseCase.StopServiceResult.NotDeployed _ -> ResponseEntity.notFound().build();
+                case ServiceDeploymentUseCase.StopServiceResult.Drift _ -> ResponseEntity.status(HttpStatus.CONFLICT).build();
+                case ServiceDeploymentUseCase.StopServiceResult.DesiredStateFailure _,
+                     ServiceDeploymentUseCase.StopServiceResult.DockerFailure _ -> ResponseEntity
+                        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     public record DeployServiceHttpRequest(String imageVersion) {
     }
 }

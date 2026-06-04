@@ -4,6 +4,9 @@ import hr.tvz.popovic.deployko.application.domain.service.ServiceDeploymentDomai
 import hr.tvz.popovic.deployko.application.port.in.ServiceDeploymentUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,12 +18,18 @@ public class ServiceDeploymentConfiguration {
     ServiceDeploymentUseCase serviceDeploymentUseCase(
             FindServiceDefinitionPort findServiceDefinitionPort,
             UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
-            DeployContainerPort deployContainerPort
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort
     ) {
         return new ServiceDeploymentDomainService(
                 findServiceDefinitionPort,
                 upsertDesiredDeploymentPort,
-                deployContainerPort
+                updateDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort
         );
     }
 }

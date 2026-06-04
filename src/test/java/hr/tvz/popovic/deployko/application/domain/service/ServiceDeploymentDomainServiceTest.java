@@ -17,6 +17,9 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.ServiceDeploymentUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +45,10 @@ class ServiceDeploymentDomainServiceTest {
         ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 upsertDesiredDeploymentPort,
-                deployContainerPort
+                successfulUpdateStatePort(),
+                deployContainerPort,
+                successfulStartContainerPort(),
+                successfulStopContainerPort()
         );
 
         ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
@@ -67,7 +73,10 @@ class ServiceDeploymentDomainServiceTest {
         ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success()
+                successfulUpdateStatePort(),
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort()
         );
 
         ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
@@ -82,7 +91,10 @@ class ServiceDeploymentDomainServiceTest {
         ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Failure(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success()
+                successfulUpdateStatePort(),
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort()
         );
 
         ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
@@ -97,7 +109,10 @@ class ServiceDeploymentDomainServiceTest {
         ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.ServiceNotFound(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success()
+                successfulUpdateStatePort(),
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort()
         );
 
         ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
@@ -112,7 +127,10 @@ class ServiceDeploymentDomainServiceTest {
         ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Failure(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success()
+                successfulUpdateStatePort(),
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort()
         );
 
         ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
@@ -127,7 +145,10 @@ class ServiceDeploymentDomainServiceTest {
         ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
-                _ -> new DeployContainerPort.DeployContainerResult.Failure()
+                successfulUpdateStatePort(),
+                _ -> new DeployContainerPort.DeployContainerResult.Failure(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort()
         );
 
         ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
@@ -142,12 +163,17 @@ class ServiceDeploymentDomainServiceTest {
         ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success()
+                successfulUpdateStatePort(),
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort()
         );
 
-        assertThatThrownBy(() -> service.startService(new ServiceDeploymentUseCase.StartServiceCommand(SERVICE.name())))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessage("start service is not implemented yet");
+        ServiceDeploymentUseCase.StartServiceResult result = service.startService(
+                new ServiceDeploymentUseCase.StartServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.StartServiceResult.Success.class);
     }
 
     @Test
@@ -155,12 +181,17 @@ class ServiceDeploymentDomainServiceTest {
         ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success()
+                successfulUpdateStatePort(),
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort()
         );
 
-        assertThatThrownBy(() -> service.stopService(new ServiceDeploymentUseCase.StopServiceCommand(SERVICE.name())))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessage("stop service is not implemented yet");
+        ServiceDeploymentUseCase.StopServiceResult result = service.stopService(
+                new ServiceDeploymentUseCase.StopServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.StopServiceResult.Success.class);
     }
 
     private static Service service() {
@@ -185,6 +216,18 @@ class ServiceDeploymentDomainServiceTest {
                 new ImageRepository("ghcr.io/deployko/api"),
                 new RuntimeConfiguration(environmentVariables, portMappings, volumeMounts, networkAttachments)
         );
+    }
+
+    private static UpdateDesiredDeploymentStatePort successfulUpdateStatePort() {
+        return (_, _) -> new UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.Success();
+    }
+
+    private static StartContainerPort successfulStartContainerPort() {
+        return _ -> new StartContainerPort.StartContainerResult.Success();
+    }
+
+    private static StopContainerPort successfulStopContainerPort() {
+        return _ -> new StopContainerPort.StopContainerResult.Success();
     }
 
     private static final class FakeUpsertDesiredDeploymentPort implements UpsertDesiredDeploymentPort {
