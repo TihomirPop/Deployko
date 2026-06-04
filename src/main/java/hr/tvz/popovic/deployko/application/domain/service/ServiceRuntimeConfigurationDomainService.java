@@ -3,22 +3,27 @@ package hr.tvz.popovic.deployko.application.domain.service;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import java.util.Objects;
 
 public final class ServiceRuntimeConfigurationDomainService
-        implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase {
+        implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase,
+        GetServiceVolumeMountsUseCase {
 
     private final FindServicePortMappingsPort findServicePortMappingsPort;
     private final CreateServicePortMappingPort createServicePortMappingPort;
     private final DeleteServicePortMappingPort deleteServicePortMappingPort;
+    private final FindServiceVolumeMountsPort findServiceVolumeMountsPort;
 
     public ServiceRuntimeConfigurationDomainService(
             FindServicePortMappingsPort findServicePortMappingsPort,
             CreateServicePortMappingPort createServicePortMappingPort,
-            DeleteServicePortMappingPort deleteServicePortMappingPort
+            DeleteServicePortMappingPort deleteServicePortMappingPort,
+            FindServiceVolumeMountsPort findServiceVolumeMountsPort
     ) {
         this.findServicePortMappingsPort = Objects.requireNonNull(
                 findServicePortMappingsPort,
@@ -31,6 +36,10 @@ public final class ServiceRuntimeConfigurationDomainService
         this.deleteServicePortMappingPort = Objects.requireNonNull(
                 deleteServicePortMappingPort,
                 "deleteServicePortMappingPort must not be null"
+        );
+        this.findServiceVolumeMountsPort = Objects.requireNonNull(
+                findServiceVolumeMountsPort,
+                "findServiceVolumeMountsPort must not be null"
         );
     }
 
@@ -81,6 +90,20 @@ public final class ServiceRuntimeConfigurationDomainService
                     new DeleteServicePortMappingResult.PortMappingNotFound();
             case DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure _ ->
                     new DeleteServicePortMappingResult.Failure();
+        };
+    }
+
+    @Override
+    public GetServiceVolumeMountsResult getServiceVolumeMounts(GetServiceVolumeMountsCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        return switch (findServiceVolumeMountsPort.findVolumeMounts(command.serviceName())) {
+            case FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Found found ->
+                    new GetServiceVolumeMountsResult.Success(found.volumeMounts());
+            case FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.ServiceNotFound _ ->
+                    new GetServiceVolumeMountsResult.NotFound();
+            case FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure _ ->
+                    new GetServiceVolumeMountsResult.Failure();
         };
     }
 }

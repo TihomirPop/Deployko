@@ -4,9 +4,11 @@ import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeConfigur
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,12 +20,14 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService(
             FindServicePortMappingsPort findServicePortMappingsPort,
             CreateServicePortMappingPort createServicePortMappingPort,
-            DeleteServicePortMappingPort deleteServicePortMappingPort
+            DeleteServicePortMappingPort deleteServicePortMappingPort,
+            FindServiceVolumeMountsPort findServiceVolumeMountsPort
     ) {
         return new ServiceRuntimeConfigurationDomainService(
                 findServicePortMappingsPort,
                 createServicePortMappingPort,
-                deleteServicePortMappingPort
+                deleteServicePortMappingPort,
+                findServiceVolumeMountsPort
         );
     }
 
@@ -49,6 +53,13 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     }
 
     @Bean
+    GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase(
+            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
+    ) {
+        return serviceRuntimeConfigurationDomainService;
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     FindServicePortMappingsPort findServicePortMappingsPort() {
         return _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure();
@@ -64,5 +75,11 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     @ConditionalOnMissingBean
     DeleteServicePortMappingPort deleteServicePortMappingPort() {
         return (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    FindServiceVolumeMountsPort findServiceVolumeMountsPort() {
+        return _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure();
     }
 }

@@ -3,12 +3,16 @@ package hr.tvz.popovic.deployko.application.domain.service;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
+import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,10 +22,16 @@ class ServiceRuntimeConfigurationDomainServiceTest {
     private static final ServiceName SERVICE_NAME = new ServiceName("deployko-api");
     private static final PortMappings PORT_MAPPINGS = PortMappings.empty()
             .add(new Port(8080), new Port(80));
+    private static final VolumeMounts VOLUME_MOUNTS = VolumeMounts.empty()
+            .add(new VolumeMount.BindMount(
+                    new VolumeMount.HostPath("/opt/deployko/config"),
+                    new VolumeMount.Target("/app/config"),
+                    true
+            ));
 
     @Test
     void get_port_mappings_returns_success_when_service_exists() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingFinder(
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Found(PORT_MAPPINGS)
         );
 
@@ -38,7 +48,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void get_port_mappings_returns_not_found_when_service_does_not_exist() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingFinder(
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.ServiceNotFound()
         );
 
@@ -52,7 +62,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void get_port_mappings_returns_failure_when_persistence_fails() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingFinder(
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure()
         );
 
@@ -66,7 +76,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void create_port_mapping_returns_success_when_mapping_is_created() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingCreator(
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Created()
         );
 
@@ -80,7 +90,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void create_port_mapping_returns_service_not_found_when_service_does_not_exist() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingCreator(
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.ServiceNotFound()
         );
 
@@ -94,7 +104,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void create_port_mapping_returns_already_exists_when_mapping_conflicts() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingCreator(
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.AlreadyExists()
         );
 
@@ -108,7 +118,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void create_port_mapping_returns_failure_when_persistence_fails() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingCreator(
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure()
         );
 
@@ -122,7 +132,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void delete_port_mapping_returns_success_when_mapping_is_deleted() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingDeleter(
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Deleted()
         );
 
@@ -136,7 +146,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void delete_port_mapping_returns_service_not_found_when_service_does_not_exist() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingDeleter(
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.ServiceNotFound()
         );
 
@@ -150,7 +160,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void delete_port_mapping_returns_port_mapping_not_found_when_mapping_does_not_exist() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingDeleter(
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.PortMappingNotFound()
         );
 
@@ -164,7 +174,7 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     @Test
     void delete_port_mapping_returns_failure_when_persistence_fails() {
-        ServiceRuntimeConfigurationDomainService service = service(
+        ServiceRuntimeConfigurationDomainService service = serviceWithPortMappingDeleter(
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure()
         );
 
@@ -176,27 +186,92 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 .isInstanceOf(DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure.class);
     }
 
-    private static ServiceRuntimeConfigurationDomainService service(FindServicePortMappingsPort findPort) {
+    @Test
+    void get_volume_mounts_returns_success_when_service_exists() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountFinder(
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Found(VOLUME_MOUNTS)
+        );
+
+        GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult result = service.getServiceVolumeMounts(
+                new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsCommand(SERVICE_NAME)
+        );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Success.class);
+        GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Success success =
+                (GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Success) result;
+        assertThat(success.volumeMounts()).isEqualTo(VOLUME_MOUNTS);
+    }
+
+    @Test
+    void get_volume_mounts_returns_not_found_when_service_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountFinder(
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.ServiceNotFound()
+        );
+
+        GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult result = service.getServiceVolumeMounts(
+                new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsCommand(SERVICE_NAME)
+        );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.NotFound.class);
+    }
+
+    @Test
+    void get_volume_mounts_returns_failure_when_persistence_fails() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountFinder(
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure()
+        );
+
+        GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult result = service.getServiceVolumeMounts(
+                new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsCommand(SERVICE_NAME)
+        );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure.class);
+    }
+
+    private static ServiceRuntimeConfigurationDomainService serviceWithPortMappingFinder(
+            FindServicePortMappingsPort findPort
+    ) {
         return new ServiceRuntimeConfigurationDomainService(
                 findPort,
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
-                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure()
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure()
         );
     }
 
-    private static ServiceRuntimeConfigurationDomainService service(CreateServicePortMappingPort createPort) {
+    private static ServiceRuntimeConfigurationDomainService serviceWithPortMappingCreator(
+            CreateServicePortMappingPort createPort
+    ) {
         return new ServiceRuntimeConfigurationDomainService(
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
                 createPort,
-                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure()
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure()
         );
     }
 
-    private static ServiceRuntimeConfigurationDomainService service(DeleteServicePortMappingPort deletePort) {
+    private static ServiceRuntimeConfigurationDomainService serviceWithPortMappingDeleter(
+            DeleteServicePortMappingPort deletePort
+    ) {
         return new ServiceRuntimeConfigurationDomainService(
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
-                deletePort
+                deletePort,
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure()
+        );
+    }
+
+    private static ServiceRuntimeConfigurationDomainService serviceWithVolumeMountFinder(
+            FindServiceVolumeMountsPort findPort
+    ) {
+        return new ServiceRuntimeConfigurationDomainService(
+                _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
+                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
+                findPort
         );
     }
 

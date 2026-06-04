@@ -20,6 +20,7 @@ import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.flywaydb.core.Flyway;
@@ -57,6 +58,7 @@ class PersistenceAdaptersTest {
     private static ServiceDefinitionPersistenceAdapter serviceDefinitions;
     private static DesiredDeploymentPersistenceAdapter desiredDeployments;
     private static ServicePortMappingPersistenceAdapter portMappings;
+    private static ServiceVolumeMountPersistenceAdapter volumeMounts;
 
     @BeforeAll
     static void migrate_database() {
@@ -71,6 +73,7 @@ class PersistenceAdaptersTest {
         serviceDefinitions = new ServiceDefinitionPersistenceAdapter(dsl, transactions);
         desiredDeployments = new DesiredDeploymentPersistenceAdapter(dsl, transactions);
         portMappings = new ServicePortMappingPersistenceAdapter(dsl, transactions);
+        volumeMounts = new ServiceVolumeMountPersistenceAdapter(dsl);
     }
 
     @BeforeEach
@@ -189,6 +192,29 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(FindServicePortMappingsPort.FindServicePortMappingsResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void find_volume_mounts_returns_mounts_when_service_exists() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        FindServiceVolumeMountsPort.FindServiceVolumeMountsResult result =
+                volumeMounts.findVolumeMounts(service.name());
+
+        assertThat(result).isInstanceOf(FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Found.class);
+        FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Found found =
+                (FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Found) result;
+        assertThat(found.volumeMounts()).isEqualTo(service.runtimeConfiguration().volumeMounts());
+    }
+
+    @Test
+    void find_volume_mounts_returns_service_not_found_when_service_does_not_exist() {
+        FindServiceVolumeMountsPort.FindServiceVolumeMountsResult result =
+                volumeMounts.findVolumeMounts(new ServiceName("missing-api"));
+
+        assertThat(result)
+                .isInstanceOf(FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.ServiceNotFound.class);
     }
 
     @Test

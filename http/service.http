@@ -7,6 +7,10 @@
 @hostProtocol = TCP
 @containerPort = 80
 @containerProtocol = TCP
+@targetPath = /app/config
+@volumeMountType = BIND
+@volumeMountSource = /opt/deployko/config
+@volumeMountReadOnly = true
 
 ### Create service
 POST {{host}}/services
@@ -102,6 +106,12 @@ DELETE {{host}}/services/missing-service/runtime-configuration/port-mappings/{{h
 
 ### Delete missing port mapping
 DELETE {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings/{{hostProtocol}}/8081
+
+### Get volume mounts
+GET {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts
+
+### Get volume mounts missing service
+GET {{host}}/services/missing-service/runtime-configuration/volume-mounts
 
 ### Deploy
 POST {{host}}/services/{{serviceName}}/runtime/deploy

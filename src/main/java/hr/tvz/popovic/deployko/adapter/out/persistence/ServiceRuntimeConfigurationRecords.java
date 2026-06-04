@@ -90,7 +90,7 @@ final class ServiceRuntimeConfigurationRecords {
         return environmentVariables;
     }
 
-    private VolumeMounts findVolumeMounts(UUID serviceId) {
+    VolumeMounts findVolumeMounts(UUID serviceId) {
         VolumeMounts volumeMounts = VolumeMounts.empty();
 
         var records = dsl

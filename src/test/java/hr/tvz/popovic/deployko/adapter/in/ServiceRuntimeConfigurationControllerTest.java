@@ -2,9 +2,12 @@ package hr.tvz.popovic.deployko.adapter.in;
 
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
+import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
+import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -258,9 +261,68 @@ class ServiceRuntimeConfigurationControllerTest {
                 .andExpect(status().isInternalServerError());
     }
 
+    @Test
+    void gets_volume_mounts_and_returns_ok_status() throws Exception {
+        VolumeMounts volumeMounts = VolumeMounts.empty()
+                .add(new VolumeMount.BindMount(
+                        new VolumeMount.HostPath("/opt/deployko/config"),
+                        new VolumeMount.Target("/app/config"),
+                        true
+                ))
+                .add(new VolumeMount.NamedVolumeMount(
+                        new VolumeMount.VolumeName("deployko_data"),
+                        new VolumeMount.Target("/var/lib/deployko"),
+                        false
+                ));
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Success(volumeMounts)
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime-configuration/volume-mounts", "deployko-api"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].targetPath").value("/app/config"))
+                .andExpect(jsonPath("$[0].mountType").value("BIND"))
+                .andExpect(jsonPath("$[0].source").value("/opt/deployko/config"))
+                .andExpect(jsonPath("$[0].readOnly").value(true))
+                .andExpect(jsonPath("$[1].targetPath").value("/var/lib/deployko"))
+                .andExpect(jsonPath("$[1].mountType").value("VOLUME"))
+                .andExpect(jsonPath("$[1].source").value("deployko_data"))
+                .andExpect(jsonPath("$[1].readOnly").value(false));
+    }
+
+    @Test
+    void returns_not_found_when_getting_volume_mounts_for_missing_service() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.NotFound()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime-configuration/volume-mounts", "missing-api"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_bad_request_when_getting_volume_mounts_for_invalid_service_name() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime-configuration/volume-mounts", "Deployko Api"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_internal_server_error_when_getting_volume_mounts_fails_unexpectedly() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime-configuration/volume-mounts", "deployko-api"))
+                .andExpect(status().isInternalServerError());
+    }
+
     private static MockMvc mockMvc(StubServiceRuntimeConfigurationUseCases useCases) {
         return MockMvcBuilders
-                .standaloneSetup(new ServiceRuntimeConfigurationController(useCases, useCases, useCases))
+                .standaloneSetup(new ServiceRuntimeConfigurationController(useCases, useCases, useCases, useCases))
                 .build();
     }
 
@@ -278,8 +340,10 @@ class ServiceRuntimeConfigurationControllerTest {
     private record StubServiceRuntimeConfigurationUseCases(
             GetServicePortMappingsUseCase.GetServicePortMappingsResult getPortMappingsResult,
             CreateServicePortMappingUseCase.CreateServicePortMappingResult createPortMappingResult,
-            DeleteServicePortMappingUseCase.DeleteServicePortMappingResult deletePortMappingResult
-    ) implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase {
+            DeleteServicePortMappingUseCase.DeleteServicePortMappingResult deletePortMappingResult,
+            GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult getVolumeMountsResult
+    ) implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase,
+            GetServiceVolumeMountsUseCase {
 
         private StubServiceRuntimeConfigurationUseCases(
                 GetServicePortMappingsUseCase.GetServicePortMappingsResult getPortMappingsResult
@@ -287,7 +351,8 @@ class ServiceRuntimeConfigurationControllerTest {
             this(
                     getPortMappingsResult,
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
-                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure()
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
+                    new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure()
             );
         }
 
@@ -298,7 +363,8 @@ class ServiceRuntimeConfigurationControllerTest {
             this(
                     getPortMappingsResult,
                     createPortMappingResult,
-                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure()
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
+                    new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure()
             );
         }
 
@@ -308,7 +374,19 @@ class ServiceRuntimeConfigurationControllerTest {
             this(
                     new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
                     new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
-                    deletePortMappingResult
+                    deletePortMappingResult,
+                    new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure()
+            );
+        }
+
+        private StubServiceRuntimeConfigurationUseCases(
+                GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult getVolumeMountsResult
+        ) {
+            this(
+                    new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
+                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
+                    getVolumeMountsResult
             );
         }
 
@@ -325,6 +403,11 @@ class ServiceRuntimeConfigurationControllerTest {
         @Override
         public DeleteServicePortMappingResult deleteServicePortMapping(DeleteServicePortMappingCommand command) {
             return deletePortMappingResult;
+        }
+
+        @Override
+        public GetServiceVolumeMountsResult getServiceVolumeMounts(GetServiceVolumeMountsCommand command) {
+            return getVolumeMountsResult;
         }
     }
 }

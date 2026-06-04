@@ -3,9 +3,12 @@ package hr.tvz.popovic.deployko.adapter.in;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
+import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,15 +27,18 @@ public class ServiceRuntimeConfigurationController {
     private final GetServicePortMappingsUseCase getServicePortMappingsUseCase;
     private final CreateServicePortMappingUseCase createServicePortMappingUseCase;
     private final DeleteServicePortMappingUseCase deleteServicePortMappingUseCase;
+    private final GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase;
 
     public ServiceRuntimeConfigurationController(
             GetServicePortMappingsUseCase getServicePortMappingsUseCase,
             CreateServicePortMappingUseCase createServicePortMappingUseCase,
-            DeleteServicePortMappingUseCase deleteServicePortMappingUseCase
+            DeleteServicePortMappingUseCase deleteServicePortMappingUseCase,
+            GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase
     ) {
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
         this.createServicePortMappingUseCase = createServicePortMappingUseCase;
         this.deleteServicePortMappingUseCase = deleteServicePortMappingUseCase;
+        this.getServiceVolumeMountsUseCase = getServiceVolumeMountsUseCase;
     }
 
     @GetMapping("/port-mappings")
@@ -118,6 +124,29 @@ public class ServiceRuntimeConfigurationController {
         }
     }
 
+    @GetMapping("/volume-mounts")
+    public ResponseEntity<?> getVolumeMounts(@PathVariable String serviceName) {
+        try {
+            GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult result =
+                    getServiceVolumeMountsUseCase.getServiceVolumeMounts(
+                            new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsCommand(
+                                    new ServiceName(serviceName)
+                            )
+                    );
+
+            return switch (result) {
+                case GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Success success ->
+                        ResponseEntity.ok(VolumeMountHttpResponse.from(success.volumeMounts()));
+                case GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.NotFound _ ->
+                        ResponseEntity.notFound().build();
+                case GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     public record CreatePortMappingHttpRequest(
             int hostPort,
             String hostProtocol,
@@ -157,6 +186,40 @@ public class ServiceRuntimeConfigurationController {
                     containerPort.value(),
                     containerPort.protocol().name()
             );
+        }
+    }
+
+    public record VolumeMountHttpResponse(
+            String targetPath,
+            String mountType,
+            String source,
+            boolean readOnly
+    ) {
+
+        static List<VolumeMountHttpResponse> from(VolumeMounts volumeMounts) {
+            return volumeMounts
+                    .asMap()
+                    .values()
+                    .stream()
+                    .map(VolumeMountHttpResponse::from)
+                    .toList();
+        }
+
+        private static VolumeMountHttpResponse from(VolumeMount volumeMount) {
+            return switch (volumeMount) {
+                case VolumeMount.BindMount bindMount -> new VolumeMountHttpResponse(
+                        bindMount.target().value(),
+                        "BIND",
+                        bindMount.source().value(),
+                        bindMount.readOnly()
+                );
+                case VolumeMount.NamedVolumeMount namedVolumeMount -> new VolumeMountHttpResponse(
+                        namedVolumeMount.target().value(),
+                        "VOLUME",
+                        namedVolumeMount.source().value(),
+                        namedVolumeMount.readOnly()
+                );
+            };
         }
     }
 }
