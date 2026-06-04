@@ -45,7 +45,7 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
-class ServicePersistenceAdapterTest {
+class PersistenceAdaptersTest {
 
     @Container
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine")
@@ -54,7 +54,9 @@ class ServicePersistenceAdapterTest {
             .withPassword("deployko");
 
     private static DSLContext dsl;
-    private static ServicePersistenceAdapter adapter;
+    private static ServiceDefinitionPersistenceAdapter serviceDefinitions;
+    private static DesiredDeploymentPersistenceAdapter desiredDeployments;
+    private static ServicePortMappingPersistenceAdapter portMappings;
 
     @BeforeAll
     static void migrate_database() {
@@ -65,7 +67,10 @@ class ServicePersistenceAdapterTest {
                 .migrate();
 
         dsl = DSL.using(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
-        adapter = new ServicePersistenceAdapter(dsl, new JooqTransactionHelper(dsl));
+        JooqTransactionHelper transactions = new JooqTransactionHelper(dsl);
+        serviceDefinitions = new ServiceDefinitionPersistenceAdapter(dsl, transactions);
+        desiredDeployments = new DesiredDeploymentPersistenceAdapter(dsl, transactions);
+        portMappings = new ServicePortMappingPersistenceAdapter(dsl, transactions);
     }
 
     @BeforeEach
@@ -77,7 +82,7 @@ class ServicePersistenceAdapterTest {
     void create_persists_service_with_runtime_configuration() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
 
-        CreateServicePort.CreateServicePortResult result = adapter.create(service);
+        CreateServicePort.CreateServicePortResult result = serviceDefinitions.create(service);
 
         assertThat(result).isInstanceOf(CreateServicePort.CreateServicePortResult.Success.class);
         assertThat(dsl.fetchCount(SERVICES)).isEqualTo(1);
@@ -134,8 +139,8 @@ class ServicePersistenceAdapterTest {
                 RuntimeConfiguration.empty()
         );
 
-        CreateServicePort.CreateServicePortResult firstResult = adapter.create(firstService);
-        CreateServicePort.CreateServicePortResult duplicateResult = adapter.create(duplicateService);
+        CreateServicePort.CreateServicePortResult firstResult = serviceDefinitions.create(firstService);
+        CreateServicePort.CreateServicePortResult duplicateResult = serviceDefinitions.create(duplicateService);
 
         assertThat(firstResult).isInstanceOf(CreateServicePort.CreateServicePortResult.Success.class);
         assertThat(duplicateResult).isInstanceOf(CreateServicePort.CreateServicePortResult.AlreadyExists.class);
@@ -145,9 +150,9 @@ class ServicePersistenceAdapterTest {
     @Test
     void find_by_name_returns_service_definition_when_service_exists() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        FindServiceDefinitionPort.FindServiceDefinitionResult result = adapter.findByName(service.name());
+        FindServiceDefinitionPort.FindServiceDefinitionResult result = serviceDefinitions.findByName(service.name());
 
         assertThat(result).isInstanceOf(FindServiceDefinitionPort.FindServiceDefinitionResult.Found.class);
         FindServiceDefinitionPort.FindServiceDefinitionResult.Found found =
@@ -157,7 +162,8 @@ class ServicePersistenceAdapterTest {
 
     @Test
     void find_by_name_returns_not_found_when_service_does_not_exist() {
-        FindServiceDefinitionPort.FindServiceDefinitionResult result = adapter.findByName(new ServiceName("missing-api"));
+        FindServiceDefinitionPort.FindServiceDefinitionResult result =
+                serviceDefinitions.findByName(new ServiceName("missing-api"));
 
         assertThat(result).isInstanceOf(FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound.class);
     }
@@ -165,9 +171,10 @@ class ServicePersistenceAdapterTest {
     @Test
     void find_port_mappings_returns_mappings_when_service_exists() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        FindServicePortMappingsPort.FindServicePortMappingsResult result = adapter.findPortMappings(service.name());
+        FindServicePortMappingsPort.FindServicePortMappingsResult result =
+                portMappings.findPortMappings(service.name());
 
         assertThat(result).isInstanceOf(FindServicePortMappingsPort.FindServicePortMappingsResult.Found.class);
         FindServicePortMappingsPort.FindServicePortMappingsResult.Found found =
@@ -178,9 +185,10 @@ class ServicePersistenceAdapterTest {
     @Test
     void find_port_mappings_returns_service_not_found_when_service_does_not_exist() {
         FindServicePortMappingsPort.FindServicePortMappingsResult result =
-                adapter.findPortMappings(new ServiceName("missing-api"));
+                portMappings.findPortMappings(new ServiceName("missing-api"));
 
-        assertThat(result).isInstanceOf(FindServicePortMappingsPort.FindServicePortMappingsResult.ServiceNotFound.class);
+        assertThat(result)
+                .isInstanceOf(FindServicePortMappingsPort.FindServicePortMappingsResult.ServiceNotFound.class);
     }
 
     @Test
@@ -190,9 +198,9 @@ class ServicePersistenceAdapterTest {
                 new ImageRepository("registry.example.com/team/billing-api"),
                 RuntimeConfiguration.empty()
         );
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        CreateServicePortMappingPort.CreateServicePortMappingResult result = adapter.createPortMapping(
+        CreateServicePortMappingPort.CreateServicePortMappingResult result = portMappings.createPortMapping(
                 service.name(),
                 new Port(8080),
                 new Port(80)
@@ -212,52 +220,55 @@ class ServicePersistenceAdapterTest {
 
     @Test
     void create_port_mapping_returns_service_not_found_when_service_does_not_exist() {
-        CreateServicePortMappingPort.CreateServicePortMappingResult result = adapter.createPortMapping(
+        CreateServicePortMappingPort.CreateServicePortMappingResult result = portMappings.createPortMapping(
                 new ServiceName("missing-api"),
                 new Port(8080),
                 new Port(80)
         );
 
-        assertThat(result).isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.ServiceNotFound.class);
+        assertThat(result)
+                .isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.ServiceNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isZero();
     }
 
     @Test
     void create_port_mapping_returns_already_exists_when_host_port_conflicts() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        CreateServicePortMappingPort.CreateServicePortMappingResult result = adapter.createPortMapping(
+        CreateServicePortMappingPort.CreateServicePortMappingResult result = portMappings.createPortMapping(
                 service.name(),
                 new Port(8080),
                 new Port(81)
         );
 
-        assertThat(result).isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.AlreadyExists.class);
+        assertThat(result)
+                .isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.AlreadyExists.class);
         assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isEqualTo(2);
     }
 
     @Test
     void create_port_mapping_returns_already_exists_when_container_port_conflicts() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        CreateServicePortMappingPort.CreateServicePortMappingResult result = adapter.createPortMapping(
+        CreateServicePortMappingPort.CreateServicePortMappingResult result = portMappings.createPortMapping(
                 service.name(),
                 new Port(8081),
                 new Port(80)
         );
 
-        assertThat(result).isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.AlreadyExists.class);
+        assertThat(result)
+                .isInstanceOf(CreateServicePortMappingPort.CreateServicePortMappingResult.AlreadyExists.class);
         assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isEqualTo(2);
     }
 
     @Test
     void delete_port_mapping_deletes_mapping_when_service_and_mapping_exist() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = adapter.deletePortMapping(
+        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = portMappings.deletePortMapping(
                 service.name(),
                 new Port(8080)
         );
@@ -275,20 +286,21 @@ class ServicePersistenceAdapterTest {
 
     @Test
     void delete_port_mapping_returns_service_not_found_when_service_does_not_exist() {
-        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = adapter.deletePortMapping(
+        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = portMappings.deletePortMapping(
                 new ServiceName("missing-api"),
                 new Port(8080)
         );
 
-        assertThat(result).isInstanceOf(DeleteServicePortMappingPort.DeleteServicePortMappingResult.ServiceNotFound.class);
+        assertThat(result)
+                .isInstanceOf(DeleteServicePortMappingPort.DeleteServicePortMappingResult.ServiceNotFound.class);
     }
 
     @Test
     void delete_port_mapping_returns_port_mapping_not_found_when_mapping_does_not_exist() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = adapter.deletePortMapping(
+        DeleteServicePortMappingPort.DeleteServicePortMappingResult result = portMappings.deletePortMapping(
                 service.name(),
                 new Port(8081)
         );
@@ -301,9 +313,10 @@ class ServicePersistenceAdapterTest {
     @Test
     void upsert_persists_desired_deployment_with_runtime_configuration_snapshot() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result = adapter.upsert(desiredDeployment(service));
+        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result =
+                desiredDeployments.upsert(desiredDeployment(service));
 
         assertThat(result).isInstanceOf(UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success.class);
         assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isEqualTo(1);
@@ -330,8 +343,8 @@ class ServicePersistenceAdapterTest {
     @Test
     void upsert_replaces_existing_desired_deployment_snapshot() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
-        adapter.upsert(desiredDeployment(service));
+        serviceDefinitions.create(service);
+        desiredDeployments.upsert(desiredDeployment(service));
         DesiredDeployment replacement = new DesiredDeployment(
                 service.name(),
                 service.imageRepository(),
@@ -340,7 +353,7 @@ class ServicePersistenceAdapterTest {
                 DesiredDeploymentState.RUNNING
         );
 
-        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result = adapter.upsert(replacement);
+        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result = desiredDeployments.upsert(replacement);
 
         assertThat(result).isInstanceOf(UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success.class);
         assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isEqualTo(1);
@@ -365,22 +378,24 @@ class ServicePersistenceAdapterTest {
                 DesiredDeploymentState.RUNNING
         );
 
-        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result = adapter.upsert(desiredDeployment);
+        UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult result = desiredDeployments.upsert(desiredDeployment);
 
-        assertThat(result).isInstanceOf(UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.ServiceNotFound.class);
+        assertThat(result)
+                .isInstanceOf(UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.ServiceNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isZero();
     }
 
     @Test
     void update_state_updates_existing_desired_deployment_state() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
-        adapter.upsert(desiredDeployment(service));
+        serviceDefinitions.create(service);
+        desiredDeployments.upsert(desiredDeployment(service));
 
         UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult result =
-                adapter.updateState(service.name(), DesiredDeploymentState.STOPPED);
+                desiredDeployments.updateState(service.name(), DesiredDeploymentState.STOPPED);
 
-        assertThat(result).isInstanceOf(UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.Success.class);
+        assertThat(result)
+                .isInstanceOf(UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.Success.class);
         assertThat(dsl.fetchValue(
                 dsl
                         .select(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE)
@@ -391,28 +406,32 @@ class ServicePersistenceAdapterTest {
     @Test
     void update_state_returns_not_deployed_when_service_has_no_desired_deployment() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
         UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult result =
-                adapter.updateState(service.name(), DesiredDeploymentState.RUNNING);
+                desiredDeployments.updateState(service.name(), DesiredDeploymentState.RUNNING);
 
-        assertThat(result).isInstanceOf(UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.NotDeployed.class);
+        assertThat(result)
+                .isInstanceOf(UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.NotDeployed.class);
     }
 
     @Test
     void update_state_returns_service_not_found_when_service_does_not_exist() {
         UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult result =
-                adapter.updateState(new ServiceName("missing-api"), DesiredDeploymentState.RUNNING);
+                desiredDeployments.updateState(new ServiceName("missing-api"), DesiredDeploymentState.RUNNING);
 
-        assertThat(result).isInstanceOf(UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.ServiceNotFound.class);
+        assertThat(result)
+                .isInstanceOf(
+                        UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.ServiceNotFound.class
+                );
     }
 
     @Test
     void delete_by_name_deletes_service_and_runtime_configuration() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
-        adapter.create(service);
+        serviceDefinitions.create(service);
 
-        DeleteServiceByNamePort.DeleteServiceByNameResult result = adapter.deleteByName(service.name());
+        DeleteServiceByNamePort.DeleteServiceByNameResult result = serviceDefinitions.deleteByName(service.name());
 
         assertThat(result).isInstanceOf(DeleteServiceByNamePort.DeleteServiceByNameResult.Deleted.class);
         assertThat(dsl.fetchCount(SERVICES)).isZero();
@@ -424,7 +443,8 @@ class ServicePersistenceAdapterTest {
 
     @Test
     void delete_by_name_returns_not_found_when_service_does_not_exist() {
-        DeleteServiceByNamePort.DeleteServiceByNameResult result = adapter.deleteByName(new ServiceName("missing-api"));
+        DeleteServiceByNamePort.DeleteServiceByNameResult result =
+                serviceDefinitions.deleteByName(new ServiceName("missing-api"));
 
         assertThat(result).isInstanceOf(DeleteServiceByNamePort.DeleteServiceByNameResult.NotFound.class);
     }
@@ -437,7 +457,10 @@ class ServicePersistenceAdapterTest {
                         EnvironmentVariables
                                 .empty()
                                 .add(new EnvironmentVariables.Key("APP_ENV"), new EnvironmentVariables.Value("prod"))
-                                .add(new EnvironmentVariables.Key("JAVA_OPTS"), new EnvironmentVariables.Value("-Xmx512m")),
+                                .add(
+                                        new EnvironmentVariables.Key("JAVA_OPTS"),
+                                        new EnvironmentVariables.Value("-Xmx512m")
+                                ),
                         PortMappings
                                 .empty()
                                 .add(new Port(8080), new Port(80))
