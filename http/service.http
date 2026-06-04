@@ -3,7 +3,7 @@
 @serviceName = deployko-nginx
 @imageRepository = docker.io/library/nginx
 @imageVersion = latest
-@hostPort = 8080
+@hostPort = 8081
 @hostProtocol = TCP
 @containerPort = 80
 @containerProtocol = TCP

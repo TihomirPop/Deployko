@@ -5,6 +5,7 @@ import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.exception.DockerException;
 import com.github.dockerjava.api.exception.NotFoundException;
+import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.HostConfig;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 
@@ -24,8 +25,14 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
         Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
 
         String containerName = DockerDeploymentMetadata.containerName(desiredDeployment);
-        dockerClient.stopContainerCmd(containerName).exec();
-        dockerClient.removeContainerCmd(containerName).exec();
+        try {
+            dockerClient.stopContainerCmd(containerName).exec();
+        } catch (NotFoundException | NotModifiedException _) {
+        }
+        try {
+            dockerClient.removeContainerCmd(containerName).exec();
+        } catch (NotFoundException _) {
+        }
     }
 
     @Override
