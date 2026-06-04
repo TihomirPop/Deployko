@@ -6,6 +6,7 @@ import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
@@ -28,17 +29,20 @@ public class ServiceRuntimeConfigurationController {
     private final CreateServicePortMappingUseCase createServicePortMappingUseCase;
     private final DeleteServicePortMappingUseCase deleteServicePortMappingUseCase;
     private final GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase;
+    private final CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase;
 
     public ServiceRuntimeConfigurationController(
             GetServicePortMappingsUseCase getServicePortMappingsUseCase,
             CreateServicePortMappingUseCase createServicePortMappingUseCase,
             DeleteServicePortMappingUseCase deleteServicePortMappingUseCase,
-            GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase
+            GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase,
+            CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase
     ) {
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
         this.createServicePortMappingUseCase = createServicePortMappingUseCase;
         this.deleteServicePortMappingUseCase = deleteServicePortMappingUseCase;
         this.getServiceVolumeMountsUseCase = getServiceVolumeMountsUseCase;
+        this.createServiceVolumeMountUseCase = createServiceVolumeMountUseCase;
     }
 
     @GetMapping("/port-mappings")
@@ -147,6 +151,35 @@ public class ServiceRuntimeConfigurationController {
         }
     }
 
+    @PostMapping("/volume-mounts")
+    public ResponseEntity<Void> createVolumeMount(
+            @PathVariable String serviceName,
+            @RequestBody CreateVolumeMountHttpRequest request
+    ) {
+        try {
+            CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult result =
+                    createServiceVolumeMountUseCase.createServiceVolumeMount(
+                            new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountCommand(
+                                    new ServiceName(serviceName),
+                                    request.toVolumeMount()
+                            )
+                    );
+
+            return switch (result) {
+                case CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Success _ ->
+                        ResponseEntity.status(HttpStatus.CREATED).build();
+                case CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.AlreadyExists _ ->
+                        ResponseEntity.status(HttpStatus.CONFLICT).build();
+                case CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     public record CreatePortMappingHttpRequest(
             int hostPort,
             String hostProtocol,
@@ -160,6 +193,28 @@ public class ServiceRuntimeConfigurationController {
 
         Port toContainerPort() {
             return new Port(containerPort, Port.Protocol.valueOf(containerProtocol));
+        }
+    }
+
+    public record CreateVolumeMountHttpRequest(
+            String targetPath,
+            String mountType,
+            String source,
+            boolean readOnly
+    ) {
+
+        VolumeMount toVolumeMount() {
+            VolumeMount.Target target = new VolumeMount.Target(targetPath);
+
+            return switch (mountType) {
+                case "BIND" -> new VolumeMount.BindMount(new VolumeMount.HostPath(source), target, readOnly);
+                case "VOLUME" -> new VolumeMount.NamedVolumeMount(
+                        new VolumeMount.VolumeName(source),
+                        target,
+                        readOnly
+                );
+                default -> throw new IllegalArgumentException("mountType must be BIND or VOLUME");
+            };
         }
     }
 

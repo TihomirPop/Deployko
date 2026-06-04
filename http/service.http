@@ -113,6 +113,50 @@ GET {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts
 ### Get volume mounts missing service
 GET {{host}}/services/missing-service/runtime-configuration/volume-mounts
 
+### Create volume mount
+POST {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts
+Content-Type: application/json
+
+{
+  "targetPath": "{{targetPath}}",
+  "mountType": "{{volumeMountType}}",
+  "source": "{{volumeMountSource}}",
+  "readOnly": {{volumeMountReadOnly}}
+}
+
+### Create duplicate volume mount
+POST {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts
+Content-Type: application/json
+
+{
+  "targetPath": "{{targetPath}}",
+  "mountType": "{{volumeMountType}}",
+  "source": "{{volumeMountSource}}",
+  "readOnly": {{volumeMountReadOnly}}
+}
+
+### Create volume mount missing service
+POST {{host}}/services/missing-service/runtime-configuration/volume-mounts
+Content-Type: application/json
+
+{
+  "targetPath": "{{targetPath}}",
+  "mountType": "{{volumeMountType}}",
+  "source": "{{volumeMountSource}}",
+  "readOnly": {{volumeMountReadOnly}}
+}
+
+### Create invalid volume mount
+POST {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts
+Content-Type: application/json
+
+{
+  "targetPath": "app/config",
+  "mountType": "{{volumeMountType}}",
+  "source": "{{volumeMountSource}}",
+  "readOnly": {{volumeMountReadOnly}}
+}
+
 ### Deploy
 POST {{host}}/services/{{serviceName}}/runtime/deploy
 Content-Type: application/json

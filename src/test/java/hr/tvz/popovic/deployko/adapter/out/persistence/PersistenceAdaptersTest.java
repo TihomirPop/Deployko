@@ -16,6 +16,7 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
+import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
@@ -73,7 +74,7 @@ class PersistenceAdaptersTest {
         serviceDefinitions = new ServiceDefinitionPersistenceAdapter(dsl, transactions);
         desiredDeployments = new DesiredDeploymentPersistenceAdapter(dsl, transactions);
         portMappings = new ServicePortMappingPersistenceAdapter(dsl, transactions);
-        volumeMounts = new ServiceVolumeMountPersistenceAdapter(dsl);
+        volumeMounts = new ServiceVolumeMountPersistenceAdapter(dsl, transactions);
     }
 
     @BeforeEach
@@ -215,6 +216,71 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void create_volume_mount_inserts_mount_when_service_exists() {
+        Service service = new Service(
+                new ServiceName("billing-api"),
+                new ImageRepository("registry.example.com/team/billing-api"),
+                RuntimeConfiguration.empty()
+        );
+        serviceDefinitions.create(service);
+
+        CreateServiceVolumeMountPort.CreateServiceVolumeMountResult result = volumeMounts.createVolumeMount(
+                service.name(),
+                new VolumeMount.BindMount(
+                        new VolumeMount.HostPath("/opt/deployko/config"),
+                        new VolumeMount.Target("/app/config"),
+                        true
+                )
+        );
+
+        assertThat(result).isInstanceOf(CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Created.class);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_VOLUME_MOUNTS)
+                        .where(SERVICE_VOLUME_MOUNTS.TARGET_PATH.eq("/app/config"))
+                        .and(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE.eq("BIND"))
+                        .and(SERVICE_VOLUME_MOUNTS.SOURCE.eq("/opt/deployko/config"))
+                        .and(SERVICE_VOLUME_MOUNTS.READ_ONLY.eq(true))
+        )).isTrue();
+    }
+
+    @Test
+    void create_volume_mount_returns_service_not_found_when_service_does_not_exist() {
+        CreateServiceVolumeMountPort.CreateServiceVolumeMountResult result = volumeMounts.createVolumeMount(
+                new ServiceName("missing-api"),
+                new VolumeMount.BindMount(
+                        new VolumeMount.HostPath("/opt/deployko/config"),
+                        new VolumeMount.Target("/app/config"),
+                        true
+                )
+        );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.ServiceNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isZero();
+    }
+
+    @Test
+    void create_volume_mount_returns_already_exists_when_target_conflicts() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        CreateServiceVolumeMountPort.CreateServiceVolumeMountResult result = volumeMounts.createVolumeMount(
+                service.name(),
+                new VolumeMount.NamedVolumeMount(
+                        new VolumeMount.VolumeName("other_config"),
+                        new VolumeMount.Target("/app/config"),
+                        false
+                )
+        );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.AlreadyExists.class);
+        assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isEqualTo(2);
     }
 
     @Test

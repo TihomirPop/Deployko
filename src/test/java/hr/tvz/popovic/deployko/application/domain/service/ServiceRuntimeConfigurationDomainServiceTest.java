@@ -6,10 +6,12 @@ import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
+import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
@@ -28,6 +30,11 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                     new VolumeMount.Target("/app/config"),
                     true
             ));
+    private static final VolumeMount VOLUME_MOUNT = new VolumeMount.BindMount(
+            new VolumeMount.HostPath("/opt/deployko/config"),
+            new VolumeMount.Target("/app/config"),
+            true
+    );
 
     @Test
     void get_port_mappings_returns_success_when_service_exists() {
@@ -231,6 +238,62 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 .isInstanceOf(GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure.class);
     }
 
+    @Test
+    void create_volume_mount_returns_success_when_mount_is_created() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountCreator(
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Created()
+        );
+
+        CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult result = service.createServiceVolumeMount(
+                createVolumeMountCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Success.class);
+    }
+
+    @Test
+    void create_volume_mount_returns_service_not_found_when_service_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountCreator(
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.ServiceNotFound()
+        );
+
+        CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult result = service.createServiceVolumeMount(
+                createVolumeMountCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void create_volume_mount_returns_already_exists_when_mount_conflicts() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountCreator(
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.AlreadyExists()
+        );
+
+        CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult result = service.createServiceVolumeMount(
+                createVolumeMountCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.AlreadyExists.class);
+    }
+
+    @Test
+    void create_volume_mount_returns_failure_when_persistence_fails() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithVolumeMountCreator(
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure()
+        );
+
+        CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult result = service.createServiceVolumeMount(
+                createVolumeMountCommand()
+        );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure.class);
+    }
+
     private static ServiceRuntimeConfigurationDomainService serviceWithPortMappingFinder(
             FindServicePortMappingsPort findPort
     ) {
@@ -238,7 +301,8 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 findPort,
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
-                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure()
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure()
         );
     }
 
@@ -249,7 +313,8 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
                 createPort,
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
-                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure()
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure()
         );
     }
 
@@ -260,7 +325,8 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
                 deletePort,
-                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure()
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure()
         );
     }
 
@@ -271,7 +337,20 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
                 (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
                 (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
-                findPort
+                findPort,
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure()
+        );
+    }
+
+    private static ServiceRuntimeConfigurationDomainService serviceWithVolumeMountCreator(
+            CreateServiceVolumeMountPort createPort
+    ) {
+        return new ServiceRuntimeConfigurationDomainService(
+                _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
+                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
+                createPort
         );
     }
 
@@ -288,5 +367,9 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 SERVICE_NAME,
                 new Port(8080)
         );
+    }
+
+    private static CreateServiceVolumeMountUseCase.CreateServiceVolumeMountCommand createVolumeMountCommand() {
+        return new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountCommand(SERVICE_NAME, VOLUME_MOUNT);
     }
 }
