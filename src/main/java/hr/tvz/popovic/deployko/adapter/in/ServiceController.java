@@ -3,7 +3,8 @@ package hr.tvz.popovic.deployko.adapter.in;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
-import hr.tvz.popovic.deployko.application.port.in.ServiceManagementUseCase;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceUseCase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,32 +16,37 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/services")
-public class ServiceManagementController {
+public class ServiceController {
 
-    private final ServiceManagementUseCase serviceManagementUseCase;
+    private final CreateServiceUseCase createServiceUseCase;
+    private final DeleteServiceUseCase deleteServiceUseCase;
 
-    public ServiceManagementController(ServiceManagementUseCase serviceManagementUseCase) {
-        this.serviceManagementUseCase = serviceManagementUseCase;
+    public ServiceController(
+            CreateServiceUseCase createServiceUseCase,
+            DeleteServiceUseCase deleteServiceUseCase
+    ) {
+        this.createServiceUseCase = createServiceUseCase;
+        this.deleteServiceUseCase = deleteServiceUseCase;
     }
 
     @PostMapping
     public ResponseEntity<?> createService(@RequestBody CreateServiceHttpRequest request) {
         try {
-            ServiceManagementUseCase.CreateServiceResult result = serviceManagementUseCase.createService(
-                    new ServiceManagementUseCase.CreateServiceCommand(
+            CreateServiceUseCase.CreateServiceResult result = createServiceUseCase.createService(
+                    new CreateServiceUseCase.CreateServiceCommand(
                             new ServiceName(request.name()),
                             new ImageRepository(request.imageRepository())
                     )
             );
 
             return switch (result) {
-                case ServiceManagementUseCase.CreateServiceResult.Success success -> ResponseEntity
+                case CreateServiceUseCase.CreateServiceResult.Success success -> ResponseEntity
                         .status(HttpStatus.CREATED)
                         .body(CreateServiceHttpResponse.from(success.service()));
-                case ServiceManagementUseCase.CreateServiceResult.DuplicateServiceName _ -> ResponseEntity
+                case CreateServiceUseCase.CreateServiceResult.DuplicateServiceName _ -> ResponseEntity
                         .status(HttpStatus.CONFLICT)
                         .build();
-                case ServiceManagementUseCase.CreateServiceResult.Failure _ -> ResponseEntity
+                case CreateServiceUseCase.CreateServiceResult.Failure _ -> ResponseEntity
                         .status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .build();
             };
@@ -52,14 +58,14 @@ public class ServiceManagementController {
     @DeleteMapping("/{serviceName}")
     public ResponseEntity<Void> deleteService(@PathVariable String serviceName) {
         try {
-            ServiceManagementUseCase.DeleteServiceResult result = serviceManagementUseCase.deleteService(
-                    new ServiceManagementUseCase.DeleteServiceCommand(new ServiceName(serviceName))
+            DeleteServiceUseCase.DeleteServiceResult result = deleteServiceUseCase.deleteService(
+                    new DeleteServiceUseCase.DeleteServiceCommand(new ServiceName(serviceName))
             );
 
             return switch (result) {
-                case ServiceManagementUseCase.DeleteServiceResult.Success _ -> ResponseEntity.noContent().build();
-                case ServiceManagementUseCase.DeleteServiceResult.NotFound _ -> ResponseEntity.notFound().build();
-                case ServiceManagementUseCase.DeleteServiceResult.Failure _ -> ResponseEntity
+                case DeleteServiceUseCase.DeleteServiceResult.Success _ -> ResponseEntity.noContent().build();
+                case DeleteServiceUseCase.DeleteServiceResult.NotFound _ -> ResponseEntity.notFound().build();
+                case DeleteServiceUseCase.DeleteServiceResult.Failure _ -> ResponseEntity
                         .status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .build();
             };

@@ -14,7 +14,9 @@ import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
-import hr.tvz.popovic.deployko.application.port.in.ServiceDeploymentUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
@@ -27,9 +29,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class ServiceDeploymentDomainServiceTest {
+class ServiceRuntimeDomainServiceTest {
 
     private static final Service SERVICE = service();
     private static final ImageVersion IMAGE_VERSION = new ImageVersion("1.0.0");
@@ -42,7 +43,7 @@ class ServiceDeploymentDomainServiceTest {
         FakeDeployContainerPort deployContainerPort = new FakeDeployContainerPort(
                 new DeployContainerPort.DeployContainerResult.Success()
         );
-        ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 upsertDesiredDeploymentPort,
                 successfulUpdateStatePort(),
@@ -51,11 +52,11 @@ class ServiceDeploymentDomainServiceTest {
                 successfulStopContainerPort()
         );
 
-        ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
-                new ServiceDeploymentUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
         );
 
-        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.DeployServiceResult.Success.class);
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.Success.class);
         assertThat(upsertDesiredDeploymentPort.upsertedDeployments).hasSize(1);
         assertThat(upsertDesiredDeploymentPort.upsertedDeployments.getFirst()).isEqualTo(new DesiredDeployment(
                 SERVICE.name(),
@@ -70,7 +71,7 @@ class ServiceDeploymentDomainServiceTest {
 
     @Test
     void returns_service_not_found_when_service_definition_is_missing() {
-        ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
@@ -79,16 +80,16 @@ class ServiceDeploymentDomainServiceTest {
                 successfulStopContainerPort()
         );
 
-        ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
-                new ServiceDeploymentUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
         );
 
-        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.DeployServiceResult.ServiceNotFound.class);
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.ServiceNotFound.class);
     }
 
     @Test
     void returns_desired_state_failure_when_service_definition_lookup_fails() {
-        ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Failure(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
@@ -97,16 +98,16 @@ class ServiceDeploymentDomainServiceTest {
                 successfulStopContainerPort()
         );
 
-        ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
-                new ServiceDeploymentUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
         );
 
-        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.DeployServiceResult.DesiredStateFailure.class);
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.DesiredStateFailure.class);
     }
 
     @Test
     void returns_service_not_found_when_upsert_reports_missing_service() {
-        ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.ServiceNotFound(),
                 successfulUpdateStatePort(),
@@ -115,16 +116,16 @@ class ServiceDeploymentDomainServiceTest {
                 successfulStopContainerPort()
         );
 
-        ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
-                new ServiceDeploymentUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
         );
 
-        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.DeployServiceResult.ServiceNotFound.class);
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.ServiceNotFound.class);
     }
 
     @Test
     void returns_desired_state_failure_when_upsert_fails() {
-        ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Failure(),
                 successfulUpdateStatePort(),
@@ -133,16 +134,16 @@ class ServiceDeploymentDomainServiceTest {
                 successfulStopContainerPort()
         );
 
-        ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
-                new ServiceDeploymentUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
         );
 
-        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.DeployServiceResult.DesiredStateFailure.class);
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.DesiredStateFailure.class);
     }
 
     @Test
     void returns_docker_failure_when_deploy_port_fails() {
-        ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
@@ -151,16 +152,16 @@ class ServiceDeploymentDomainServiceTest {
                 successfulStopContainerPort()
         );
 
-        ServiceDeploymentUseCase.DeployServiceResult result = service.deployService(
-                new ServiceDeploymentUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
         );
 
-        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.DeployServiceResult.DockerFailure.class);
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.DockerFailure.class);
     }
 
     @Test
-    void start_service_is_not_implemented_yet() {
-        ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
+    void starts_service_when_state_update_and_start_port_succeed() {
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
@@ -169,16 +170,16 @@ class ServiceDeploymentDomainServiceTest {
                 successfulStopContainerPort()
         );
 
-        ServiceDeploymentUseCase.StartServiceResult result = service.startService(
-                new ServiceDeploymentUseCase.StartServiceCommand(SERVICE.name())
+        StartServiceUseCase.StartServiceResult result = service.startService(
+                new StartServiceUseCase.StartServiceCommand(SERVICE.name())
         );
 
-        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.StartServiceResult.Success.class);
+        assertThat(result).isInstanceOf(StartServiceUseCase.StartServiceResult.Success.class);
     }
 
     @Test
-    void stop_service_is_not_implemented_yet() {
-        ServiceDeploymentDomainService service = new ServiceDeploymentDomainService(
+    void stops_service_when_state_update_and_stop_port_succeed() {
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
@@ -187,11 +188,11 @@ class ServiceDeploymentDomainServiceTest {
                 successfulStopContainerPort()
         );
 
-        ServiceDeploymentUseCase.StopServiceResult result = service.stopService(
-                new ServiceDeploymentUseCase.StopServiceCommand(SERVICE.name())
+        StopServiceUseCase.StopServiceResult result = service.stopService(
+                new StopServiceUseCase.StopServiceCommand(SERVICE.name())
         );
 
-        assertThat(result).isInstanceOf(ServiceDeploymentUseCase.StopServiceResult.Success.class);
+        assertThat(result).isInstanceOf(StopServiceUseCase.StopServiceResult.Success.class);
     }
 
     private static Service service() {

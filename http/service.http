@@ -41,7 +41,7 @@ DELETE {{host}}/services/missing-service
 DELETE {{host}}/services/Deployko Api
 
 ### Deploy
-POST {{host}}/services/{{serviceName}}/deployments
+POST {{host}}/services/{{serviceName}}/runtime/deploy
 Content-Type: application/json
 
 {
@@ -49,7 +49,7 @@ Content-Type: application/json
 }
 
 ### Deploy missing
-POST {{host}}/services/missing-service/deployments
+POST {{host}}/services/missing-service/runtime/deploy
 Content-Type: application/json
 
 {
@@ -57,7 +57,7 @@ Content-Type: application/json
 }
 
 ### Deploy invalid image version
-POST {{host}}/services/{{serviceName}}/deployments
+POST {{host}}/services/{{serviceName}}/runtime/deploy
 Content-Type: application/json
 
 {
@@ -65,19 +65,19 @@ Content-Type: application/json
 }
 
 ### Start
-POST {{host}}/services/{{serviceName}}/deployments/start
+POST {{host}}/services/{{serviceName}}/runtime/start
 
 ### Start missing
-POST {{host}}/services/missing-service/deployments/start
+POST {{host}}/services/missing-service/runtime/start
 
 ### Start invalid
-POST {{host}}/services/Deployko Api/deployments/start
+POST {{host}}/services/Deployko Api/runtime/start
 
 ### Stop
-POST {{host}}/services/{{serviceName}}/deployments/stop
+POST {{host}}/services/{{serviceName}}/runtime/stop
 
 ### Stop missing
-POST {{host}}/services/missing-service/deployments/stop
+POST {{host}}/services/missing-service/runtime/stop
 
 ### Stop invalid
-POST {{host}}/services/Deployko Api/deployments/stop
+POST {{host}}/services/Deployko Api/runtime/stop

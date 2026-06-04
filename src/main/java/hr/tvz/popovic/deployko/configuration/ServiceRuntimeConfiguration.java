@@ -1,7 +1,9 @@
 package hr.tvz.popovic.deployko.configuration;
 
-import hr.tvz.popovic.deployko.application.domain.service.ServiceDeploymentDomainService;
-import hr.tvz.popovic.deployko.application.port.in.ServiceDeploymentUseCase;
+import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeDomainService;
+import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
@@ -12,10 +14,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class ServiceDeploymentConfiguration {
+public class ServiceRuntimeConfiguration {
 
     @Bean
-    ServiceDeploymentUseCase serviceDeploymentUseCase(
+    ServiceRuntimeDomainService serviceRuntimeDomainService(
             FindServiceDefinitionPort findServiceDefinitionPort,
             UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
             UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
@@ -23,7 +25,7 @@ public class ServiceDeploymentConfiguration {
             StartContainerPort startContainerPort,
             StopContainerPort stopContainerPort
     ) {
-        return new ServiceDeploymentDomainService(
+        return new ServiceRuntimeDomainService(
                 findServiceDefinitionPort,
                 upsertDesiredDeploymentPort,
                 updateDesiredDeploymentStatePort,
@@ -31,5 +33,20 @@ public class ServiceDeploymentConfiguration {
                 startContainerPort,
                 stopContainerPort
         );
+    }
+
+    @Bean
+    DeployServiceUseCase deployServiceUseCase(ServiceRuntimeDomainService serviceRuntimeDomainService) {
+        return serviceRuntimeDomainService;
+    }
+
+    @Bean
+    StartServiceUseCase startServiceUseCase(ServiceRuntimeDomainService serviceRuntimeDomainService) {
+        return serviceRuntimeDomainService;
+    }
+
+    @Bean
+    StopServiceUseCase stopServiceUseCase(ServiceRuntimeDomainService serviceRuntimeDomainService) {
+        return serviceRuntimeDomainService;
     }
 }

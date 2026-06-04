@@ -4,16 +4,11 @@ import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 
-public interface ServiceManagementUseCase {
+public interface CreateServiceUseCase {
 
     CreateServiceResult createService(CreateServiceCommand command);
 
-    DeleteServiceResult deleteService(DeleteServiceCommand command);
-
     record CreateServiceCommand(ServiceName serviceName, ImageRepository imageRepository) {
-    }
-
-    record DeleteServiceCommand(ServiceName serviceName) {
     }
 
     sealed interface CreateServiceResult
@@ -26,19 +21,6 @@ public interface ServiceManagementUseCase {
         }
 
         record Failure() implements CreateServiceResult {
-        }
-    }
-
-    sealed interface DeleteServiceResult
-            permits DeleteServiceResult.Success, DeleteServiceResult.NotFound, DeleteServiceResult.Failure {
-
-        record Success() implements DeleteServiceResult {
-        }
-
-        record NotFound() implements DeleteServiceResult {
-        }
-
-        record Failure() implements DeleteServiceResult {
         }
     }
 }

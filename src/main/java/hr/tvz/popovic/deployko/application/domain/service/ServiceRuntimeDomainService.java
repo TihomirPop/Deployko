@@ -4,7 +4,9 @@ import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
-import hr.tvz.popovic.deployko.application.port.in.ServiceDeploymentUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
@@ -14,7 +16,7 @@ import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 
 import java.util.Objects;
 
-public final class ServiceDeploymentDomainService implements ServiceDeploymentUseCase {
+public final class ServiceRuntimeDomainService implements DeployServiceUseCase, StartServiceUseCase, StopServiceUseCase {
 
     private final FindServiceDefinitionPort findServiceDefinitionPort;
     private final UpsertDesiredDeploymentPort upsertDesiredDeploymentPort;
@@ -23,7 +25,7 @@ public final class ServiceDeploymentDomainService implements ServiceDeploymentUs
     private final StartContainerPort startContainerPort;
     private final StopContainerPort stopContainerPort;
 
-    public ServiceDeploymentDomainService(
+    public ServiceRuntimeDomainService(
             FindServiceDefinitionPort findServiceDefinitionPort,
             UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
             UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,

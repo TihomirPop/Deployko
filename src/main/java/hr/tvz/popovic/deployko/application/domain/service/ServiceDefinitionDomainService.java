@@ -2,17 +2,18 @@ package hr.tvz.popovic.deployko.application.domain.service;
 
 import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
-import hr.tvz.popovic.deployko.application.port.in.ServiceManagementUseCase;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import java.util.Objects;
 
-public class ServiceManagementDomainService implements ServiceManagementUseCase {
+public class ServiceDefinitionDomainService implements CreateServiceUseCase, DeleteServiceUseCase {
 
     private final CreateServicePort createServicePort;
     private final DeleteServiceByNamePort deleteServiceByNamePort;
 
-    public ServiceManagementDomainService(
+    public ServiceDefinitionDomainService(
             CreateServicePort createServicePort,
             DeleteServiceByNamePort deleteServiceByNamePort
     ) {

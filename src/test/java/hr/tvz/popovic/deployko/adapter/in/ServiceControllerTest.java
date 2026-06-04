@@ -9,13 +9,14 @@ import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
-import hr.tvz.popovic.deployko.application.port.in.ServiceManagementUseCase;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-class ServiceManagementControllerTest {
+class ServiceControllerTest {
 
     @Test
     void creates_service_and_returns_created_status() throws Exception {
@@ -24,9 +25,9 @@ class ServiceManagementControllerTest {
                 new ImageRepository("ghcr.io/deployko/api"),
                 RuntimeConfiguration.empty()
         );
-        MockMvc mockMvc = mockMvc(new StubServiceManagementUseCase(
-                new ServiceManagementUseCase.CreateServiceResult.Success(service),
-                new ServiceManagementUseCase.DeleteServiceResult.Success()
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new CreateServiceUseCase.CreateServiceResult.Success(service),
+                new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
 
         mockMvc.perform(post("/services")
@@ -44,9 +45,9 @@ class ServiceManagementControllerTest {
 
     @Test
     void returns_conflict_when_service_name_already_exists() throws Exception {
-        MockMvc mockMvc = mockMvc(new StubServiceManagementUseCase(
-                new ServiceManagementUseCase.CreateServiceResult.DuplicateServiceName(),
-                new ServiceManagementUseCase.DeleteServiceResult.Success()
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new CreateServiceUseCase.CreateServiceResult.DuplicateServiceName(),
+                new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
 
         mockMvc.perform(post("/services")
@@ -62,9 +63,9 @@ class ServiceManagementControllerTest {
 
     @Test
     void returns_bad_request_when_create_request_is_invalid() throws Exception {
-        MockMvc mockMvc = mockMvc(new StubServiceManagementUseCase(
-                new ServiceManagementUseCase.CreateServiceResult.Failure(),
-                new ServiceManagementUseCase.DeleteServiceResult.Success()
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new CreateServiceUseCase.CreateServiceResult.Failure(),
+                new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
 
         mockMvc.perform(post("/services")
@@ -80,9 +81,9 @@ class ServiceManagementControllerTest {
 
     @Test
     void returns_internal_server_error_when_create_fails_unexpectedly() throws Exception {
-        MockMvc mockMvc = mockMvc(new StubServiceManagementUseCase(
-                new ServiceManagementUseCase.CreateServiceResult.Failure(),
-                new ServiceManagementUseCase.DeleteServiceResult.Success()
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new CreateServiceUseCase.CreateServiceResult.Failure(),
+                new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
 
         mockMvc.perform(post("/services")
@@ -98,9 +99,9 @@ class ServiceManagementControllerTest {
 
     @Test
     void deletes_service_and_returns_no_content() throws Exception {
-        MockMvc mockMvc = mockMvc(new StubServiceManagementUseCase(
-                new ServiceManagementUseCase.CreateServiceResult.Failure(),
-                new ServiceManagementUseCase.DeleteServiceResult.Success()
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new CreateServiceUseCase.CreateServiceResult.Failure(),
+                new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
 
         mockMvc.perform(delete("/services/{serviceName}", "deployko-api"))
@@ -109,9 +110,9 @@ class ServiceManagementControllerTest {
 
     @Test
     void returns_not_found_when_deleting_missing_service() throws Exception {
-        MockMvc mockMvc = mockMvc(new StubServiceManagementUseCase(
-                new ServiceManagementUseCase.CreateServiceResult.Failure(),
-                new ServiceManagementUseCase.DeleteServiceResult.NotFound()
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new CreateServiceUseCase.CreateServiceResult.Failure(),
+                new DeleteServiceUseCase.DeleteServiceResult.NotFound()
         ));
 
         mockMvc.perform(delete("/services/{serviceName}", "deployko-api"))
@@ -120,9 +121,9 @@ class ServiceManagementControllerTest {
 
     @Test
     void returns_bad_request_when_delete_service_name_is_invalid() throws Exception {
-        MockMvc mockMvc = mockMvc(new StubServiceManagementUseCase(
-                new ServiceManagementUseCase.CreateServiceResult.Failure(),
-                new ServiceManagementUseCase.DeleteServiceResult.Success()
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new CreateServiceUseCase.CreateServiceResult.Failure(),
+                new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
 
         mockMvc.perform(delete("/services/{serviceName}", "Deployko Api"))
@@ -131,23 +132,23 @@ class ServiceManagementControllerTest {
 
     @Test
     void returns_internal_server_error_when_delete_fails_unexpectedly() throws Exception {
-        MockMvc mockMvc = mockMvc(new StubServiceManagementUseCase(
-                new ServiceManagementUseCase.CreateServiceResult.Failure(),
-                new ServiceManagementUseCase.DeleteServiceResult.Failure()
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new CreateServiceUseCase.CreateServiceResult.Failure(),
+                new DeleteServiceUseCase.DeleteServiceResult.Failure()
         ));
 
         mockMvc.perform(delete("/services/{serviceName}", "deployko-api"))
                 .andExpect(status().isInternalServerError());
     }
 
-    private static MockMvc mockMvc(ServiceManagementUseCase serviceManagementUseCase) {
-        return MockMvcBuilders.standaloneSetup(new ServiceManagementController(serviceManagementUseCase)).build();
+    private static MockMvc mockMvc(StubServiceUseCases useCases) {
+        return MockMvcBuilders.standaloneSetup(new ServiceController(useCases, useCases)).build();
     }
 
-    private record StubServiceManagementUseCase(
-            ServiceManagementUseCase.CreateServiceResult createServiceResult,
-            ServiceManagementUseCase.DeleteServiceResult deleteServiceResult
-    ) implements ServiceManagementUseCase {
+    private record StubServiceUseCases(
+            CreateServiceUseCase.CreateServiceResult createServiceResult,
+            DeleteServiceUseCase.DeleteServiceResult deleteServiceResult
+    ) implements CreateServiceUseCase, DeleteServiceUseCase {
 
         @Override
         public CreateServiceResult createService(CreateServiceCommand command) {
