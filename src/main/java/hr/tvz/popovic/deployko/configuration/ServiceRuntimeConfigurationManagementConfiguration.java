@@ -1,6 +1,7 @@
 package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeConfigurationDomainService;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
@@ -9,6 +10,7 @@ import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariable
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
@@ -27,6 +29,7 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     @Bean
     ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService(
             FindServiceEnvironmentVariablesPort findServiceEnvironmentVariablesPort,
+            CreateServiceEnvironmentVariablePort createServiceEnvironmentVariablePort,
             FindServicePortMappingsPort findServicePortMappingsPort,
             CreateServicePortMappingPort createServicePortMappingPort,
             DeleteServicePortMappingPort deleteServicePortMappingPort,
@@ -37,6 +40,7 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     ) {
         return new ServiceRuntimeConfigurationDomainService(
                 findServiceEnvironmentVariablesPort,
+                createServiceEnvironmentVariablePort,
                 findServicePortMappingsPort,
                 createServicePortMappingPort,
                 deleteServicePortMappingPort,
@@ -45,6 +49,13 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
                 updateServiceVolumeMountPort,
                 deleteServiceVolumeMountPort
         );
+    }
+
+    @Bean
+    CreateServiceEnvironmentVariableUseCase createServiceEnvironmentVariableUseCase(
+            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
+    ) {
+        return serviceRuntimeConfigurationDomainService;
     }
 
     @Bean
@@ -107,6 +118,12 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     @ConditionalOnMissingBean
     FindServiceEnvironmentVariablesPort findServiceEnvironmentVariablesPort() {
         return _ -> new FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.Failure();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    CreateServiceEnvironmentVariablePort createServiceEnvironmentVariablePort() {
+        return (_, _, _) -> new CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult.Failure();
     }
 
     @Bean

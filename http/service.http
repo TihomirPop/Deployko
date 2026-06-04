@@ -56,6 +56,33 @@ GET {{host}}/services/{{serviceName}}/runtime-configuration/environment-variable
 ### Get environment variables missing service
 GET {{host}}/services/missing-service/runtime-configuration/environment-variables
 
+### Create environment variable
+POST {{host}}/services/{{serviceName}}/runtime-configuration/environment-variables
+Content-Type: application/json
+
+{
+  "key": "{{environmentVariableKey}}",
+  "value": "{{environmentVariableValue}}"
+}
+
+### Create duplicate environment variable
+POST {{host}}/services/{{serviceName}}/runtime-configuration/environment-variables
+Content-Type: application/json
+
+{
+  "key": "{{environmentVariableKey}}",
+  "value": "{{environmentVariableValue}}"
+}
+
+### Create environment variable missing service
+POST {{host}}/services/missing-service/runtime-configuration/environment-variables
+Content-Type: application/json
+
+{
+  "key": "{{environmentVariableKey}}",
+  "value": "{{environmentVariableValue}}"
+}
+
 ### Get port mappings
 GET {{host}}/services/{{serviceName}}/runtime-configuration/port-mappings
 

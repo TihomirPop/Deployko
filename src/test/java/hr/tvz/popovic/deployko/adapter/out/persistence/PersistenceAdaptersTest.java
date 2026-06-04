@@ -20,6 +20,7 @@ import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
+import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
@@ -77,7 +78,7 @@ class PersistenceAdaptersTest {
         JooqTransactionHelper transactions = new JooqTransactionHelper(dsl);
         serviceDefinitions = new ServiceDefinitionPersistenceAdapter(dsl, transactions);
         desiredDeployments = new DesiredDeploymentPersistenceAdapter(dsl, transactions);
-        environmentVariables = new ServiceEnvironmentVariablePersistenceAdapter(dsl);
+        environmentVariables = new ServiceEnvironmentVariablePersistenceAdapter(dsl, transactions);
         portMappings = new ServicePortMappingPersistenceAdapter(dsl, transactions);
         volumeMounts = new ServiceVolumeMountPersistenceAdapter(dsl, transactions);
     }
@@ -222,6 +223,64 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void create_environment_variable_inserts_variable_when_service_exists() {
+        Service service = new Service(
+                new ServiceName("billing-api"),
+                new ImageRepository("registry.example.com/team/billing-api"),
+                RuntimeConfiguration.empty()
+        );
+        serviceDefinitions.create(service);
+
+        CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult result =
+                environmentVariables.createEnvironmentVariable(
+                        service.name(),
+                        new EnvironmentVariables.Key("APP_ENV"),
+                        new EnvironmentVariables.Value("prod")
+                );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult.Created.class);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_ENVIRONMENT_VARIABLES)
+                        .where(SERVICE_ENVIRONMENT_VARIABLES.KEY.eq("APP_ENV"))
+                        .and(SERVICE_ENVIRONMENT_VARIABLES.VALUE.eq("prod"))
+        )).isTrue();
+    }
+
+    @Test
+    void create_environment_variable_returns_service_not_found_when_service_does_not_exist() {
+        CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult result =
+                environmentVariables.createEnvironmentVariable(
+                        new ServiceName("missing-api"),
+                        new EnvironmentVariables.Key("APP_ENV"),
+                        new EnvironmentVariables.Value("prod")
+                );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult.ServiceNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_ENVIRONMENT_VARIABLES)).isZero();
+    }
+
+    @Test
+    void create_environment_variable_returns_already_exists_when_key_conflicts() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult result =
+                environmentVariables.createEnvironmentVariable(
+                        service.name(),
+                        new EnvironmentVariables.Key("APP_ENV"),
+                        new EnvironmentVariables.Value("staging")
+                );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult.AlreadyExists.class);
+        assertThat(dsl.fetchCount(SERVICE_ENVIRONMENT_VARIABLES)).isEqualTo(2);
     }
 
     @Test
