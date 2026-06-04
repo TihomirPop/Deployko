@@ -6,6 +6,8 @@ import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesPort;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,7 +21,7 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class ServiceDefinitionPersistenceAdapter
-        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort {
+        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, FindServiceNamesPort {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceDefinitionPersistenceAdapter.class);
 
@@ -76,6 +78,22 @@ public final class ServiceDefinitionPersistenceAdapter
         } catch (DataAccessException exception) {
             log.error("error while finding service definition", exception);
             return new FindServiceDefinitionResult.Failure();
+        }
+    }
+
+    @Override
+    public FindServiceNamesResult findServiceNames() {
+        try {
+            List<ServiceName> serviceNames = dsl
+                    .select(SERVICES.NAME)
+                    .from(SERVICES)
+                    .orderBy(SERVICES.NAME)
+                    .fetch(record -> new ServiceName(record.get(SERVICES.NAME)));
+
+            return new FindServiceNamesResult.Found(serviceNames);
+        } catch (DataAccessException exception) {
+            log.error("error while finding service names", exception);
+            return new FindServiceNamesResult.Failure();
         }
     }
 
