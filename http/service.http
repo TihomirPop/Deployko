@@ -157,6 +157,46 @@ Content-Type: application/json
   "readOnly": {{volumeMountReadOnly}}
 }
 
+### Update volume mount
+PUT {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?targetPath={{targetPath}}
+Content-Type: application/json
+
+{
+  "mountType": "VOLUME",
+  "source": "deployko_config",
+  "readOnly": false
+}
+
+### Update volume mount missing service
+PUT {{host}}/services/missing-service/runtime-configuration/volume-mounts?targetPath={{targetPath}}
+Content-Type: application/json
+
+{
+  "mountType": "VOLUME",
+  "source": "deployko_config",
+  "readOnly": false
+}
+
+### Update missing volume mount
+PUT {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?targetPath=/var/log/deployko
+Content-Type: application/json
+
+{
+  "mountType": "VOLUME",
+  "source": "deployko_logs",
+  "readOnly": false
+}
+
+### Update invalid volume mount
+PUT {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?targetPath=app/config
+Content-Type: application/json
+
+{
+  "mountType": "VOLUME",
+  "source": "deployko_config",
+  "readOnly": false
+}
+
 ### Deploy
 POST {{host}}/services/{{serviceName}}/runtime/deploy
 Content-Type: application/json

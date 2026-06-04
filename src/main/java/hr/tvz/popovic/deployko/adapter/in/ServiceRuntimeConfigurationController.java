@@ -10,6 +10,7 @@ import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCa
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,8 +18,10 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -30,19 +33,22 @@ public class ServiceRuntimeConfigurationController {
     private final DeleteServicePortMappingUseCase deleteServicePortMappingUseCase;
     private final GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase;
     private final CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase;
+    private final UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase;
 
     public ServiceRuntimeConfigurationController(
             GetServicePortMappingsUseCase getServicePortMappingsUseCase,
             CreateServicePortMappingUseCase createServicePortMappingUseCase,
             DeleteServicePortMappingUseCase deleteServicePortMappingUseCase,
             GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase,
-            CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase
+            CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase,
+            UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase
     ) {
         this.getServicePortMappingsUseCase = getServicePortMappingsUseCase;
         this.createServicePortMappingUseCase = createServicePortMappingUseCase;
         this.deleteServicePortMappingUseCase = deleteServicePortMappingUseCase;
         this.getServiceVolumeMountsUseCase = getServiceVolumeMountsUseCase;
         this.createServiceVolumeMountUseCase = createServiceVolumeMountUseCase;
+        this.updateServiceVolumeMountUseCase = updateServiceVolumeMountUseCase;
     }
 
     @GetMapping("/port-mappings")
@@ -180,6 +186,36 @@ public class ServiceRuntimeConfigurationController {
         }
     }
 
+    @PutMapping("/volume-mounts")
+    public ResponseEntity<Void> updateVolumeMount(
+            @PathVariable String serviceName,
+            @RequestParam String targetPath,
+            @RequestBody UpdateVolumeMountHttpRequest request
+    ) {
+        try {
+            UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult result =
+                    updateServiceVolumeMountUseCase.updateServiceVolumeMount(
+                            new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountCommand(
+                                    new ServiceName(serviceName),
+                                    request.toVolumeMount(new VolumeMount.Target(targetPath))
+                            )
+                    );
+
+            return switch (result) {
+                case UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Success _ ->
+                        ResponseEntity.noContent().build();
+                case UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.VolumeMountNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     public record CreatePortMappingHttpRequest(
             int hostPort,
             String hostProtocol,
@@ -204,18 +240,36 @@ public class ServiceRuntimeConfigurationController {
     ) {
 
         VolumeMount toVolumeMount() {
-            VolumeMount.Target target = new VolumeMount.Target(targetPath);
-
-            return switch (mountType) {
-                case "BIND" -> new VolumeMount.BindMount(new VolumeMount.HostPath(source), target, readOnly);
-                case "VOLUME" -> new VolumeMount.NamedVolumeMount(
-                        new VolumeMount.VolumeName(source),
-                        target,
-                        readOnly
-                );
-                default -> throw new IllegalArgumentException("mountType must be BIND or VOLUME");
-            };
+            return volumeMountFrom(mountType, source, new VolumeMount.Target(targetPath), readOnly);
         }
+    }
+
+    public record UpdateVolumeMountHttpRequest(
+            String mountType,
+            String source,
+            boolean readOnly
+    ) {
+
+        VolumeMount toVolumeMount(VolumeMount.Target target) {
+            return volumeMountFrom(mountType, source, target, readOnly);
+        }
+    }
+
+    private static VolumeMount volumeMountFrom(
+            String mountType,
+            String source,
+            VolumeMount.Target target,
+            boolean readOnly
+    ) {
+        return switch (mountType) {
+            case "BIND" -> new VolumeMount.BindMount(new VolumeMount.HostPath(source), target, readOnly);
+            case "VOLUME" -> new VolumeMount.NamedVolumeMount(
+                    new VolumeMount.VolumeName(source),
+                    target,
+                    readOnly
+            );
+            default -> throw new IllegalArgumentException("mountType must be BIND or VOLUME");
+        };
     }
 
     public record PortMappingHttpResponse(

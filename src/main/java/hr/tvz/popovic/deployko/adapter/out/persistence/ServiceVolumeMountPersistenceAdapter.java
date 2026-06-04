@@ -4,6 +4,7 @@ import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,7 +18,7 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class ServiceVolumeMountPersistenceAdapter
-        implements FindServiceVolumeMountsPort, CreateServiceVolumeMountPort {
+        implements FindServiceVolumeMountsPort, CreateServiceVolumeMountPort, UpdateServiceVolumeMountPort {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceVolumeMountPersistenceAdapter.class);
 
@@ -75,6 +76,30 @@ public final class ServiceVolumeMountPersistenceAdapter
         }
     }
 
+    @Override
+    public UpdateServiceVolumeMountResult updateVolumeMount(ServiceName serviceName, VolumeMount volumeMount) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+        Objects.requireNonNull(volumeMount, "volumeMount must not be null");
+
+        try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new UpdateServiceVolumeMountResult.ServiceNotFound();
+            }
+
+            int updatedRows = updateVolumeMount(dsl, serviceId.get(), volumeMount);
+
+            return switch (updatedRows) {
+                case 0 -> new UpdateServiceVolumeMountResult.VolumeMountNotFound();
+                case 1 -> new UpdateServiceVolumeMountResult.Updated();
+                default -> new UpdateServiceVolumeMountResult.Failure();
+            };
+        } catch (DataAccessException exception) {
+            log.error("error while updating service volume mount", exception);
+            return new UpdateServiceVolumeMountResult.Failure();
+        }
+    }
+
     private static boolean volumeMountExists(
             DSLContext dsl,
             UUID serviceId,
@@ -99,6 +124,19 @@ public final class ServiceVolumeMountPersistenceAdapter
                 .set(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE, values.mountType())
                 .set(SERVICE_VOLUME_MOUNTS.SOURCE, values.source())
                 .set(SERVICE_VOLUME_MOUNTS.READ_ONLY, volumeMount.readOnly())
+                .execute();
+    }
+
+    private static int updateVolumeMount(DSLContext dsl, UUID serviceId, VolumeMount volumeMount) {
+        VolumeMountRecord values = VolumeMountRecord.from(volumeMount);
+
+        return dsl
+                .update(SERVICE_VOLUME_MOUNTS)
+                .set(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE, values.mountType())
+                .set(SERVICE_VOLUME_MOUNTS.SOURCE, values.source())
+                .set(SERVICE_VOLUME_MOUNTS.READ_ONLY, volumeMount.readOnly())
+                .where(SERVICE_VOLUME_MOUNTS.SERVICE_ID.eq(serviceId))
+                .and(SERVICE_VOLUME_MOUNTS.TARGET_PATH.eq(volumeMount.target().value()))
                 .execute();
     }
 }

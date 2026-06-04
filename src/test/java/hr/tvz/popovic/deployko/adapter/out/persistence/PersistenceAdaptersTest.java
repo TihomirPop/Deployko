@@ -23,6 +23,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.flywaydb.core.Flyway;
 import org.jooq.DSLContext;
@@ -280,6 +281,67 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.AlreadyExists.class);
+        assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isEqualTo(2);
+    }
+
+    @Test
+    void update_volume_mount_updates_mount_when_service_and_mount_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult result = volumeMounts.updateVolumeMount(
+                service.name(),
+                new VolumeMount.NamedVolumeMount(
+                        new VolumeMount.VolumeName("deployko_config"),
+                        new VolumeMount.Target("/app/config"),
+                        false
+                )
+        );
+
+        assertThat(result).isInstanceOf(UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Updated.class);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_VOLUME_MOUNTS)
+                        .where(SERVICE_VOLUME_MOUNTS.TARGET_PATH.eq("/app/config"))
+                        .and(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE.eq("VOLUME"))
+                        .and(SERVICE_VOLUME_MOUNTS.SOURCE.eq("deployko_config"))
+                        .and(SERVICE_VOLUME_MOUNTS.READ_ONLY.eq(false))
+        )).isTrue();
+        assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isEqualTo(2);
+    }
+
+    @Test
+    void update_volume_mount_returns_service_not_found_when_service_does_not_exist() {
+        UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult result = volumeMounts.updateVolumeMount(
+                new ServiceName("missing-api"),
+                new VolumeMount.NamedVolumeMount(
+                        new VolumeMount.VolumeName("deployko_config"),
+                        new VolumeMount.Target("/app/config"),
+                        false
+                )
+        );
+
+        assertThat(result)
+                .isInstanceOf(UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void update_volume_mount_returns_volume_mount_not_found_when_mount_does_not_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult result = volumeMounts.updateVolumeMount(
+                service.name(),
+                new VolumeMount.NamedVolumeMount(
+                        new VolumeMount.VolumeName("deployko_logs"),
+                        new VolumeMount.Target("/var/log/deployko"),
+                        false
+                )
+        );
+
+        assertThat(result)
+                .isInstanceOf(UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.VolumeMountNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isEqualTo(2);
     }
 

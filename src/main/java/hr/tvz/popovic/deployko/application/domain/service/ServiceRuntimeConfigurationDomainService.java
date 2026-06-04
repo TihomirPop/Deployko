@@ -5,29 +5,33 @@ import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCa
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
 import java.util.Objects;
 
 public final class ServiceRuntimeConfigurationDomainService
         implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase,
-        GetServiceVolumeMountsUseCase, CreateServiceVolumeMountUseCase {
+        GetServiceVolumeMountsUseCase, CreateServiceVolumeMountUseCase, UpdateServiceVolumeMountUseCase {
 
     private final FindServicePortMappingsPort findServicePortMappingsPort;
     private final CreateServicePortMappingPort createServicePortMappingPort;
     private final DeleteServicePortMappingPort deleteServicePortMappingPort;
     private final FindServiceVolumeMountsPort findServiceVolumeMountsPort;
     private final CreateServiceVolumeMountPort createServiceVolumeMountPort;
+    private final UpdateServiceVolumeMountPort updateServiceVolumeMountPort;
 
     public ServiceRuntimeConfigurationDomainService(
             FindServicePortMappingsPort findServicePortMappingsPort,
             CreateServicePortMappingPort createServicePortMappingPort,
             DeleteServicePortMappingPort deleteServicePortMappingPort,
             FindServiceVolumeMountsPort findServiceVolumeMountsPort,
-            CreateServiceVolumeMountPort createServiceVolumeMountPort
+            CreateServiceVolumeMountPort createServiceVolumeMountPort,
+            UpdateServiceVolumeMountPort updateServiceVolumeMountPort
     ) {
         this.findServicePortMappingsPort = Objects.requireNonNull(
                 findServicePortMappingsPort,
@@ -48,6 +52,10 @@ public final class ServiceRuntimeConfigurationDomainService
         this.createServiceVolumeMountPort = Objects.requireNonNull(
                 createServiceVolumeMountPort,
                 "createServiceVolumeMountPort must not be null"
+        );
+        this.updateServiceVolumeMountPort = Objects.requireNonNull(
+                updateServiceVolumeMountPort,
+                "updateServiceVolumeMountPort must not be null"
         );
     }
 
@@ -128,6 +136,22 @@ public final class ServiceRuntimeConfigurationDomainService
                     new CreateServiceVolumeMountResult.AlreadyExists();
             case CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure _ ->
                     new CreateServiceVolumeMountResult.Failure();
+        };
+    }
+
+    @Override
+    public UpdateServiceVolumeMountResult updateServiceVolumeMount(UpdateServiceVolumeMountCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        return switch (updateServiceVolumeMountPort.updateVolumeMount(command.serviceName(), command.volumeMount())) {
+            case UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Updated _ ->
+                    new UpdateServiceVolumeMountResult.Success();
+            case UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.ServiceNotFound _ ->
+                    new UpdateServiceVolumeMountResult.ServiceNotFound();
+            case UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.VolumeMountNotFound _ ->
+                    new UpdateServiceVolumeMountResult.VolumeMountNotFound();
+            case UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure _ ->
+                    new UpdateServiceVolumeMountResult.Failure();
         };
     }
 }

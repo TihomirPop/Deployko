@@ -6,11 +6,13 @@ import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCa
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
+import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,14 +26,16 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
             CreateServicePortMappingPort createServicePortMappingPort,
             DeleteServicePortMappingPort deleteServicePortMappingPort,
             FindServiceVolumeMountsPort findServiceVolumeMountsPort,
-            CreateServiceVolumeMountPort createServiceVolumeMountPort
+            CreateServiceVolumeMountPort createServiceVolumeMountPort,
+            UpdateServiceVolumeMountPort updateServiceVolumeMountPort
     ) {
         return new ServiceRuntimeConfigurationDomainService(
                 findServicePortMappingsPort,
                 createServicePortMappingPort,
                 deleteServicePortMappingPort,
                 findServiceVolumeMountsPort,
-                createServiceVolumeMountPort
+                createServiceVolumeMountPort,
+                updateServiceVolumeMountPort
         );
     }
 
@@ -71,6 +75,13 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     }
 
     @Bean
+    UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase(
+            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
+    ) {
+        return serviceRuntimeConfigurationDomainService;
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     FindServicePortMappingsPort findServicePortMappingsPort() {
         return _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure();
@@ -98,5 +109,11 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     @ConditionalOnMissingBean
     CreateServiceVolumeMountPort createServiceVolumeMountPort() {
         return (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    UpdateServiceVolumeMountPort updateServiceVolumeMountPort() {
+        return (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure();
     }
 }
