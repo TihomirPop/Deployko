@@ -39,6 +39,8 @@ public class DockerDeployContainerAdapter implements DeployContainerPort {
     }
 
     private DeployContainerResult deployContainer(DesiredDeployment desiredDeployment) {
+        dockerDeploymentClient.removeContainer(desiredDeployment);
+
         String containerId = dockerDeploymentClient.createContainer(desiredDeployment);
 
         for (NetworkAttachment networkAttachment : desiredDeployment.runtimeConfiguration().networkAttachments().asMap().values()) {

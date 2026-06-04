@@ -20,6 +20,15 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
     }
 
     @Override
+    public void removeContainer(DesiredDeployment desiredDeployment) {
+        Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
+
+        String containerName = DockerDeploymentMetadata.containerName(desiredDeployment);
+        dockerClient.stopContainerCmd(containerName).exec();
+        dockerClient.removeContainerCmd(containerName).exec();
+    }
+
+    @Override
     public String createContainer(DesiredDeployment desiredDeployment) {
         Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
 

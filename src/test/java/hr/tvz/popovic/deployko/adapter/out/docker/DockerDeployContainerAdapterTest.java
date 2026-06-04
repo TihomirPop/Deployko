@@ -36,10 +36,13 @@ class DockerDeployContainerAdapterTest {
         DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Success.class);
+        assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
         assertThat(dockerDeploymentClient.createdDesiredDeployment).isEqualTo(DESIRED_DEPLOYMENT);
         assertThat(dockerDeploymentClient.connectedNetworks)
                 .containsExactly("backend", "observability");
         assertThat(dockerDeploymentClient.startedContainerIds).containsExactly("container-1");
+        assertThat(dockerDeploymentClient.operations)
+                .containsExactly("replace", "create", "connect:backend", "connect:observability", "start:container-1");
     }
 
     @Test
@@ -56,8 +59,23 @@ class DockerDeployContainerAdapterTest {
         DeployContainerPort.DeployContainerResult result = adapter.deploy(deployment);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Success.class);
+        assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(deployment);
         assertThat(dockerDeploymentClient.connectedNetworks).isEmpty();
         assertThat(dockerDeploymentClient.startedContainerIds).containsExactly("container-1");
+    }
+
+    @Test
+    void returns_failure_when_existing_container_replacement_fails() {
+        dockerDeploymentClient.replaceFailure = new DockerException("docker unavailable", 500);
+
+        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
+
+        assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Failure.class);
+        assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
+        assertThat(dockerDeploymentClient.createdDesiredDeployment).isNull();
+        assertThat(dockerDeploymentClient.connectedNetworks).isEmpty();
+        assertThat(dockerDeploymentClient.startedContainerIds).isEmpty();
+        assertThat(dockerDeploymentClient.operations).containsExactly("replace");
     }
 
     @Test
@@ -67,6 +85,7 @@ class DockerDeployContainerAdapterTest {
         DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Failure.class);
+        assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
         assertThat(dockerDeploymentClient.connectedNetworks).isEmpty();
         assertThat(dockerDeploymentClient.startedContainerIds).isEmpty();
     }
@@ -79,6 +98,7 @@ class DockerDeployContainerAdapterTest {
         DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Failure.class);
+        assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
         assertThat(dockerDeploymentClient.connectedNetworks).containsExactly("backend");
         assertThat(dockerDeploymentClient.startedContainerIds).isEmpty();
     }
@@ -91,6 +111,7 @@ class DockerDeployContainerAdapterTest {
         DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Failure.class);
+        assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
         assertThat(dockerDeploymentClient.connectedNetworks).containsExactly("backend", "observability");
         assertThat(dockerDeploymentClient.startedContainerIds).containsExactly("container-1");
     }
@@ -131,17 +152,31 @@ class DockerDeployContainerAdapterTest {
 
     private static final class FakeDockerDeploymentClient implements DockerDeploymentClient {
 
+        private final List<DesiredDeployment> replacedDesiredDeployments = new ArrayList<>();
+        private final List<String> operations = new ArrayList<>();
         private DesiredDeployment createdDesiredDeployment;
         private String createdContainerId;
         private final List<String> connectedNetworks = new ArrayList<>();
         private final List<String> startedContainerIds = new ArrayList<>();
+        private DockerException replaceFailure;
         private DockerException createFailure;
         private DockerException connectFailure;
         private DockerException startFailure;
 
         @Override
+        public void removeContainer(DesiredDeployment desiredDeployment) {
+            replacedDesiredDeployments.add(desiredDeployment);
+            operations.add("replace");
+
+            if (replaceFailure != null) {
+                throw replaceFailure;
+            }
+        }
+
+        @Override
         public String createContainer(DesiredDeployment desiredDeployment) {
             this.createdDesiredDeployment = desiredDeployment;
+            operations.add("create");
 
             if (createFailure != null) {
                 throw createFailure;
@@ -154,6 +189,7 @@ class DockerDeployContainerAdapterTest {
         public void connectToNetwork(String containerId, String networkName) {
             assertThat(containerId).isEqualTo(createdContainerId);
             connectedNetworks.add(networkName);
+            operations.add("connect:" + networkName);
 
             if (connectFailure != null) {
                 throw connectFailure;
@@ -164,6 +200,7 @@ class DockerDeployContainerAdapterTest {
         public void startContainer(String containerId) {
             assertThat(containerId).isEqualTo(createdContainerId);
             startedContainerIds.add(containerId);
+            operations.add("start:" + containerId);
 
             if (startFailure != null) {
                 throw startFailure;
