@@ -25,8 +25,8 @@ import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVari
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
-import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -183,18 +183,33 @@ class PersistenceAdaptersTest {
     }
 
     @Test
-    void find_service_names_returns_all_service_names_sorted_by_name() {
-        serviceDefinitions.create(serviceWithRuntimeConfiguration(new ServiceName("deployko-api")));
-        serviceDefinitions.create(serviceWithRuntimeConfiguration(new ServiceName("billing-api")));
+    void find_service_summary_candidates_returns_services_with_optional_desired_deployment() {
+        Service billingService = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        Service deploykoService = serviceWithRuntimeConfiguration(new ServiceName("deployko-api"));
+        serviceDefinitions.create(deploykoService);
+        serviceDefinitions.create(billingService);
+        desiredDeployments.upsert(desiredDeployment(deploykoService));
 
-        FindServiceNamesPort.FindServiceNamesResult result = serviceDefinitions.findServiceNames();
+        FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult result =
+                serviceDefinitions.findServiceSummaryCandidates();
 
-        assertThat(result).isInstanceOf(FindServiceNamesPort.FindServiceNamesResult.Found.class);
-        FindServiceNamesPort.FindServiceNamesResult.Found found =
-                (FindServiceNamesPort.FindServiceNamesResult.Found) result;
-        assertThat(found.serviceNames()).containsExactly(
-                new ServiceName("billing-api"),
-                new ServiceName("deployko-api")
+        assertThat(result)
+                .isInstanceOf(FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Found.class);
+        FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Found found =
+                (FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Found) result;
+        assertThat(found.services()).containsExactly(
+                new FindServiceSummaryCandidatesPort.ServiceSummaryCandidate(
+                        billingService.name(),
+                        billingService.imageRepository(),
+                        java.util.Optional.empty(),
+                        java.util.Optional.empty()
+                ),
+                new FindServiceSummaryCandidatesPort.ServiceSummaryCandidate(
+                        deploykoService.name(),
+                        deploykoService.imageRepository(),
+                        java.util.Optional.of(new ImageVersion("1.0.0")),
+                        java.util.Optional.of(DesiredDeploymentState.RUNNING)
+                )
         );
     }
 

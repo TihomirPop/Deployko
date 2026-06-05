@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Deployko Service Configuration</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body data-page="configuration">
+<header class="topbar">
+    <div>
+        <a class="back-link" href="/index.html">Back to services</a>
+        <p class="eyebrow">Runtime configuration</p>
+        <h1 id="service-title">Service</h1>
+    </div>
+    <button class="secondary" type="button" data-action="refresh-config">Refresh</button>
+</header>
+
+<main class="shell">
+    <section class="band">
+        <div class="section-title">
+            <div>
+                <h2>Environment variables</h2>
+                <p>Container environment values applied during deployment.</p>
+            </div>
+        </div>
+        <form id="environment-form" class="form-grid compact">
+            <label>
+                Key
+                <input name="key" autocomplete="off" required placeholder="SPRING_PROFILES_ACTIVE">
+            </label>
+            <label>
+                Value
+                <input name="value" autocomplete="off" required placeholder="prod">
+            </label>
+            <button type="submit">Add variable</button>
+        </form>
+        <div id="environment-status" class="status" hidden></div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                    <th class="actions-column">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="environment-table"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="band">
+        <div class="section-title">
+            <div>
+                <h2>Port mappings</h2>
+                <p>Host ports forwarded to container ports.</p>
+            </div>
+        </div>
+        <form id="port-form" class="form-grid ports">
+            <label>
+                Host port
+                <input name="hostPort" type="number" min="1" max="65535" required placeholder="8080">
+            </label>
+            <label>
+                Host protocol
+                <select name="hostProtocol">
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                </select>
+            </label>
+            <label>
+                Container port
+                <input name="containerPort" type="number" min="1" max="65535" required placeholder="80">
+            </label>
+            <label>
+                Container protocol
+                <select name="containerProtocol">
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                </select>
+            </label>
+            <button type="submit">Add mapping</button>
+        </form>
+        <div id="ports-status" class="status" hidden></div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Host</th>
+                    <th>Container</th>
+                    <th class="actions-column">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="ports-table"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="band">
+        <div class="section-title">
+            <div>
+                <h2>Volume mounts</h2>
+                <p>Bind mounts and named volumes attached to the container.</p>
+            </div>
+        </div>
+        <form id="volume-form" class="form-grid volumes">
+            <label>
+                Target path
+                <input name="targetPath" autocomplete="off" required placeholder="/usr/share/nginx/html">
+            </label>
+            <label>
+                Type
+                <select name="mountType">
+                    <option value="BIND">BIND</option>
+                    <option value="VOLUME">VOLUME</option>
+                </select>
+            </label>
+            <label>
+                Source
+                <input name="source" autocomplete="off" required placeholder="/opt/deployko/nginx-html">
+            </label>
+            <label class="checkbox-label">
+                <input name="readOnly" type="checkbox">
+                Read only
+            </label>
+            <button type="submit">Add mount</button>
+        </form>
+        <div id="volumes-status" class="status" hidden></div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Target</th>
+                    <th>Type</th>
+                    <th>Source</th>
+                    <th>Read only</th>
+                    <th class="actions-column">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="volumes-table"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>

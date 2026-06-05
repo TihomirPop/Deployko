@@ -7,13 +7,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
+import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.domain.model.ServiceRuntimeStatus;
+import hr.tvz.popovic.deployko.application.domain.model.ServiceSummary;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceUseCase;
-import hr.tvz.popovic.deployko.application.port.in.GetServiceNamesUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceSummariesUseCase;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,7 +33,7 @@ class ServiceControllerTest {
                 RuntimeConfiguration.empty()
         );
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of()),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
                 new CreateServiceUseCase.CreateServiceResult.Success(service),
                 new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
@@ -50,7 +54,7 @@ class ServiceControllerTest {
     @Test
     void returns_conflict_when_service_name_already_exists() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of()),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
                 new CreateServiceUseCase.CreateServiceResult.DuplicateServiceName(),
                 new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
@@ -69,7 +73,7 @@ class ServiceControllerTest {
     @Test
     void returns_bad_request_when_create_request_is_invalid() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of()),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
                 new CreateServiceUseCase.CreateServiceResult.Failure(),
                 new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
@@ -88,7 +92,7 @@ class ServiceControllerTest {
     @Test
     void returns_internal_server_error_when_create_fails_unexpectedly() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of()),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
                 new CreateServiceUseCase.CreateServiceResult.Failure(),
                 new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
@@ -107,7 +111,7 @@ class ServiceControllerTest {
     @Test
     void deletes_service_and_returns_no_content() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of()),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
                 new CreateServiceUseCase.CreateServiceResult.Failure(),
                 new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
@@ -119,7 +123,7 @@ class ServiceControllerTest {
     @Test
     void returns_not_found_when_deleting_missing_service() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of()),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
                 new CreateServiceUseCase.CreateServiceResult.Failure(),
                 new DeleteServiceUseCase.DeleteServiceResult.NotFound()
         ));
@@ -131,7 +135,7 @@ class ServiceControllerTest {
     @Test
     void returns_bad_request_when_delete_service_name_is_invalid() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of()),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
                 new CreateServiceUseCase.CreateServiceResult.Failure(),
                 new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
@@ -143,7 +147,7 @@ class ServiceControllerTest {
     @Test
     void returns_internal_server_error_when_delete_fails_unexpectedly() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of()),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
                 new CreateServiceUseCase.CreateServiceResult.Failure(),
                 new DeleteServiceUseCase.DeleteServiceResult.Failure()
         ));
@@ -153,11 +157,21 @@ class ServiceControllerTest {
     }
 
     @Test
-    void returns_service_names() throws Exception {
+    void returns_service_summaries() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Success(List.of(
-                        new ServiceName("billing-api"),
-                        new ServiceName("deployko-api")
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of(
+                        new ServiceSummary(
+                                new ServiceName("billing-api"),
+                                new ImageRepository("ghcr.io/deployko/billing-api"),
+                                Optional.of(new ImageVersion("1.0.0")),
+                                ServiceRuntimeStatus.RUNNING
+                        ),
+                        new ServiceSummary(
+                                new ServiceName("deployko-api"),
+                                new ImageRepository("ghcr.io/deployko/api"),
+                                Optional.empty(),
+                                ServiceRuntimeStatus.NOT_DEPLOYED
+                        )
                 )),
                 new CreateServiceUseCase.CreateServiceResult.Failure(),
                 new DeleteServiceUseCase.DeleteServiceResult.Success()
@@ -165,14 +179,20 @@ class ServiceControllerTest {
 
         mockMvc.perform(get("/services"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.serviceNames[0]").value("billing-api"))
-                .andExpect(jsonPath("$.serviceNames[1]").value("deployko-api"));
+                .andExpect(jsonPath("$.services[0].name").value("billing-api"))
+                .andExpect(jsonPath("$.services[0].imageRepository").value("ghcr.io/deployko/billing-api"))
+                .andExpect(jsonPath("$.services[0].deployedVersion").value("1.0.0"))
+                .andExpect(jsonPath("$.services[0].status").value("RUNNING"))
+                .andExpect(jsonPath("$.services[1].name").value("deployko-api"))
+                .andExpect(jsonPath("$.services[1].imageRepository").value("ghcr.io/deployko/api"))
+                .andExpect(jsonPath("$.services[1].deployedVersion").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.services[1].status").value("NOT_DEPLOYED"));
     }
 
     @Test
-    void returns_internal_server_error_when_get_service_names_fails_unexpectedly() throws Exception {
+    void returns_internal_server_error_when_get_service_summaries_fails_unexpectedly() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
-                new GetServiceNamesUseCase.GetServiceNamesResult.Failure(),
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Failure(),
                 new CreateServiceUseCase.CreateServiceResult.Failure(),
                 new DeleteServiceUseCase.DeleteServiceResult.Success()
         ));
@@ -186,14 +206,14 @@ class ServiceControllerTest {
     }
 
     private record StubServiceUseCases(
-            GetServiceNamesUseCase.GetServiceNamesResult getServiceNamesResult,
+            GetServiceSummariesUseCase.GetServiceSummariesResult getServiceSummariesResult,
             CreateServiceUseCase.CreateServiceResult createServiceResult,
             DeleteServiceUseCase.DeleteServiceResult deleteServiceResult
-    ) implements GetServiceNamesUseCase, CreateServiceUseCase, DeleteServiceUseCase {
+    ) implements GetServiceSummariesUseCase, CreateServiceUseCase, DeleteServiceUseCase {
 
         @Override
-        public GetServiceNamesResult getServiceNames() {
-            return getServiceNamesResult;
+        public GetServiceSummariesResult getServiceSummaries() {
+            return getServiceSummariesResult;
         }
 
         @Override

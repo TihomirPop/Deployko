@@ -41,7 +41,7 @@ Content-Type: application/json
   "imageRepository": "{{imageRepository}}"
 }
 
-### Get service names
+### Get services
 GET {{host}}/services
 
 ### Delete service

@@ -14,16 +14,19 @@ import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceRuntimeStatus;
+import hr.tvz.popovic.deployko.application.domain.model.ServiceSummary;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceSummariesUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -32,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -356,6 +360,110 @@ class ServiceRuntimeDomainServiceTest {
                 .isInstanceOf(GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.DockerFailure.class);
     }
 
+    @Test
+    void returns_service_summaries_with_deployed_version_and_status() {
+        ServiceName undeployedServiceName = new ServiceName("billing-api");
+        ServiceRuntimeDomainService service = serviceWithSummaryPorts(
+                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Found(List.of(
+                        new FindServiceSummaryCandidatesPort.ServiceSummaryCandidate(
+                                SERVICE.name(),
+                                SERVICE.imageRepository(),
+                                Optional.of(IMAGE_VERSION),
+                                Optional.of(DesiredDeploymentState.RUNNING)
+                        ),
+                        new FindServiceSummaryCandidatesPort.ServiceSummaryCandidate(
+                                undeployedServiceName,
+                                new ImageRepository("ghcr.io/deployko/billing-api"),
+                                Optional.empty(),
+                                Optional.empty()
+                        )
+                )),
+                serviceName -> {
+                    if (serviceName.equals(undeployedServiceName)) {
+                        return new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                                ActualDeploymentState.MISSING
+                        );
+                    }
+                    return new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                            ActualDeploymentState.RUNNING
+                    );
+                }
+        );
+
+        GetServiceSummariesUseCase.GetServiceSummariesResult result = service.getServiceSummaries();
+
+        assertThat(result).isInstanceOf(GetServiceSummariesUseCase.GetServiceSummariesResult.Success.class);
+        GetServiceSummariesUseCase.GetServiceSummariesResult.Success success =
+                (GetServiceSummariesUseCase.GetServiceSummariesResult.Success) result;
+        assertThat(success.services()).containsExactly(
+                new ServiceSummary(
+                        SERVICE.name(),
+                        SERVICE.imageRepository(),
+                        Optional.of(IMAGE_VERSION),
+                        ServiceRuntimeStatus.RUNNING
+                ),
+                new ServiceSummary(
+                        undeployedServiceName,
+                        new ImageRepository("ghcr.io/deployko/billing-api"),
+                        Optional.empty(),
+                        ServiceRuntimeStatus.NOT_DEPLOYED
+                )
+        );
+    }
+
+    @Test
+    void returns_service_summaries_with_drift_status_when_docker_reports_duplicates() {
+        ServiceRuntimeDomainService service = serviceWithSummaryPorts(
+                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Found(List.of(
+                        new FindServiceSummaryCandidatesPort.ServiceSummaryCandidate(
+                                SERVICE.name(),
+                                SERVICE.imageRepository(),
+                                Optional.of(IMAGE_VERSION),
+                                Optional.of(DesiredDeploymentState.RUNNING)
+                        )
+                )),
+                _ -> new FindActualDeploymentStatePort.FindActualDeploymentStateResult.DuplicateManagedContainers()
+        );
+
+        GetServiceSummariesUseCase.GetServiceSummariesResult result = service.getServiceSummaries();
+
+        assertThat(result).isInstanceOf(GetServiceSummariesUseCase.GetServiceSummariesResult.Success.class);
+        GetServiceSummariesUseCase.GetServiceSummariesResult.Success success =
+                (GetServiceSummariesUseCase.GetServiceSummariesResult.Success) result;
+        assertThat(success.services().getFirst().status()).isEqualTo(ServiceRuntimeStatus.DUPLICATE_MANAGED_CONTAINERS);
+    }
+
+    @Test
+    void returns_summary_failure_when_candidate_lookup_fails() {
+        ServiceRuntimeDomainService service = serviceWithSummaryPorts(
+                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure(),
+                successfulFindActualDeploymentStatePort()
+        );
+
+        GetServiceSummariesUseCase.GetServiceSummariesResult result = service.getServiceSummaries();
+
+        assertThat(result).isInstanceOf(GetServiceSummariesUseCase.GetServiceSummariesResult.Failure.class);
+    }
+
+    @Test
+    void returns_summary_failure_when_actual_state_lookup_fails() {
+        ServiceRuntimeDomainService service = serviceWithSummaryPorts(
+                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Found(List.of(
+                        new FindServiceSummaryCandidatesPort.ServiceSummaryCandidate(
+                                SERVICE.name(),
+                                SERVICE.imageRepository(),
+                                Optional.of(IMAGE_VERSION),
+                                Optional.of(DesiredDeploymentState.RUNNING)
+                        )
+                )),
+                _ -> new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Failure()
+        );
+
+        GetServiceSummariesUseCase.GetServiceSummariesResult result = service.getServiceSummaries();
+
+        assertThat(result).isInstanceOf(GetServiceSummariesUseCase.GetServiceSummariesResult.Failure.class);
+    }
+
     private static Service service() {
         EnvironmentVariables environmentVariables = EnvironmentVariables.empty()
                 .add(new EnvironmentVariables.Key("APP_ENV"), new EnvironmentVariables.Value("prod"));
@@ -417,6 +525,23 @@ class ServiceRuntimeDomainServiceTest {
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 findActualDeploymentStatePort
+        );
+    }
+
+    private static ServiceRuntimeDomainService serviceWithSummaryPorts(
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort
+    ) {
+        return new ServiceRuntimeDomainService(
+                _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
+                _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
+                successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort(),
+                findActualDeploymentStatePort,
+                findServiceSummaryCandidatesPort
         );
     }
 

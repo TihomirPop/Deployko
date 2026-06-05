@@ -7,23 +7,30 @@ import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceRuntimeStatus;
+import hr.tvz.popovic.deployko.application.domain.model.ServiceSummary;
 import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceSummariesUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class ServiceRuntimeDomainService
-        implements DeployServiceUseCase, StartServiceUseCase, StopServiceUseCase, GetServiceRuntimeStatusUseCase {
+        implements DeployServiceUseCase, StartServiceUseCase, StopServiceUseCase, GetServiceRuntimeStatusUseCase,
+        GetServiceSummariesUseCase {
 
     private final FindServiceDefinitionPort findServiceDefinitionPort;
     private final UpsertDesiredDeploymentPort upsertDesiredDeploymentPort;
@@ -33,6 +40,7 @@ public final class ServiceRuntimeDomainService
     private final StartContainerPort startContainerPort;
     private final StopContainerPort stopContainerPort;
     private final FindActualDeploymentStatePort findActualDeploymentStatePort;
+    private final FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort;
 
     public ServiceRuntimeDomainService(
             FindServiceDefinitionPort findServiceDefinitionPort,
@@ -43,6 +51,30 @@ public final class ServiceRuntimeDomainService
             StartContainerPort startContainerPort,
             StopContainerPort stopContainerPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort
+    ) {
+        this(
+                findServiceDefinitionPort,
+                upsertDesiredDeploymentPort,
+                updateDesiredDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort,
+                findActualDeploymentStatePort,
+                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure()
+        );
+    }
+
+    public ServiceRuntimeDomainService(
+            FindServiceDefinitionPort findServiceDefinitionPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort,
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
     ) {
         this.findServiceDefinitionPort = Objects.requireNonNull(
                 findServiceDefinitionPort,
@@ -75,6 +107,10 @@ public final class ServiceRuntimeDomainService
         this.findActualDeploymentStatePort = Objects.requireNonNull(
                 findActualDeploymentStatePort,
                 "findActualDeploymentStatePort must not be null"
+        );
+        this.findServiceSummaryCandidatesPort = Objects.requireNonNull(
+                findServiceSummaryCandidatesPort,
+                "findServiceSummaryCandidatesPort must not be null"
         );
     }
 
@@ -140,13 +176,31 @@ public final class ServiceRuntimeDomainService
 
         return switch (findDesiredDeploymentStatePort.findDesiredState(command.serviceName())) {
             case FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Found found ->
-                    findStatusForDesiredState(command.serviceName(), found.desiredState());
+                    switch (findStatus(command.serviceName(), Optional.of(found.desiredState()))) {
+                        case RuntimeStatusResult.Success success ->
+                                new GetServiceRuntimeStatusResult.Success(success.status());
+                        case RuntimeStatusResult.DockerFailure _ -> new GetServiceRuntimeStatusResult.DockerFailure();
+                    };
             case FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.NotDeployed _ ->
-                    findStatusWithoutDesiredDeployment(command.serviceName());
+                    switch (findStatus(command.serviceName(), Optional.empty())) {
+                        case RuntimeStatusResult.Success success ->
+                                new GetServiceRuntimeStatusResult.Success(success.status());
+                        case RuntimeStatusResult.DockerFailure _ -> new GetServiceRuntimeStatusResult.DockerFailure();
+                    };
             case FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.ServiceNotFound _ ->
                     new GetServiceRuntimeStatusResult.ServiceNotFound();
             case FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Failure _ ->
                     new GetServiceRuntimeStatusResult.DesiredStateFailure();
+        };
+    }
+
+    @Override
+    public GetServiceSummariesResult getServiceSummaries() {
+        return switch (findServiceSummaryCandidatesPort.findServiceSummaryCandidates()) {
+            case FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Found found ->
+                    serviceSummariesFrom(found.services());
+            case FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure _ ->
+                    new GetServiceSummariesResult.Failure();
         };
     }
 
@@ -173,29 +227,49 @@ public final class ServiceRuntimeDomainService
         };
     }
 
-    private GetServiceRuntimeStatusResult findStatusForDesiredState(
+    private GetServiceSummariesResult serviceSummariesFrom(
+            List<FindServiceSummaryCandidatesPort.ServiceSummaryCandidate> candidates
+    ) {
+        List<ServiceSummary> serviceSummaries = new ArrayList<>();
+        for (FindServiceSummaryCandidatesPort.ServiceSummaryCandidate candidate : candidates) {
+            switch (findStatus(candidate.name(), candidate.desiredState())) {
+                case RuntimeStatusResult.Success success -> serviceSummaries.add(new ServiceSummary(
+                        candidate.name(),
+                        candidate.imageRepository(),
+                        candidate.deployedVersion(),
+                        success.status()
+                ));
+                case RuntimeStatusResult.DockerFailure _ -> {
+                    return new GetServiceSummariesResult.Failure();
+                }
+            }
+        }
+        return new GetServiceSummariesResult.Success(List.copyOf(serviceSummaries));
+    }
+
+    private RuntimeStatusResult findStatus(
             ServiceName serviceName,
-            DesiredDeploymentState desiredState
+            Optional<DesiredDeploymentState> desiredState
     ) {
         return switch (findActualDeploymentStatePort.findActualState(serviceName)) {
             case FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found found ->
-                    new GetServiceRuntimeStatusResult.Success(statusFor(desiredState, found.actualState()));
+                    new RuntimeStatusResult.Success(desiredState
+                            .map(state -> statusFor(state, found.actualState()))
+                            .orElseGet(() -> statusWithoutDesiredDeployment(found.actualState())));
             case FindActualDeploymentStatePort.FindActualDeploymentStateResult.DuplicateManagedContainers _ ->
-                    new GetServiceRuntimeStatusResult.Success(ServiceRuntimeStatus.DUPLICATE_MANAGED_CONTAINERS);
+                    new RuntimeStatusResult.Success(ServiceRuntimeStatus.DUPLICATE_MANAGED_CONTAINERS);
             case FindActualDeploymentStatePort.FindActualDeploymentStateResult.Failure _ ->
-                    new GetServiceRuntimeStatusResult.DockerFailure();
+                    new RuntimeStatusResult.DockerFailure();
         };
     }
 
-    private GetServiceRuntimeStatusResult findStatusWithoutDesiredDeployment(ServiceName serviceName) {
-        return switch (findActualDeploymentStatePort.findActualState(serviceName)) {
-            case FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found found ->
-                    new GetServiceRuntimeStatusResult.Success(statusWithoutDesiredDeployment(found.actualState()));
-            case FindActualDeploymentStatePort.FindActualDeploymentStateResult.DuplicateManagedContainers _ ->
-                    new GetServiceRuntimeStatusResult.Success(ServiceRuntimeStatus.DUPLICATE_MANAGED_CONTAINERS);
-            case FindActualDeploymentStatePort.FindActualDeploymentStateResult.Failure _ ->
-                    new GetServiceRuntimeStatusResult.DockerFailure();
-        };
+    private sealed interface RuntimeStatusResult permits RuntimeStatusResult.Success, RuntimeStatusResult.DockerFailure {
+
+        record Success(ServiceRuntimeStatus status) implements RuntimeStatusResult {
+        }
+
+        record DockerFailure() implements RuntimeStatusResult {
+        }
     }
 
     private static ServiceRuntimeStatus statusFor(

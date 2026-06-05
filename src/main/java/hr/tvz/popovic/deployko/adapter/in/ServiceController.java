@@ -3,9 +3,10 @@ package hr.tvz.popovic.deployko.adapter.in;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.domain.model.ServiceSummary;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceUseCase;
-import hr.tvz.popovic.deployko.application.port.in.GetServiceNamesUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceSummariesUseCase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,24 +25,24 @@ public class ServiceController {
 
     private final CreateServiceUseCase createServiceUseCase;
     private final DeleteServiceUseCase deleteServiceUseCase;
-    private final GetServiceNamesUseCase getServiceNamesUseCase;
+    private final GetServiceSummariesUseCase getServiceSummariesUseCase;
 
     public ServiceController(
             CreateServiceUseCase createServiceUseCase,
             DeleteServiceUseCase deleteServiceUseCase,
-            GetServiceNamesUseCase getServiceNamesUseCase
+            GetServiceSummariesUseCase getServiceSummariesUseCase
     ) {
         this.createServiceUseCase = createServiceUseCase;
         this.deleteServiceUseCase = deleteServiceUseCase;
-        this.getServiceNamesUseCase = getServiceNamesUseCase;
+        this.getServiceSummariesUseCase = getServiceSummariesUseCase;
     }
 
     @GetMapping
-    public ResponseEntity<?> getServiceNames() {
-        return switch (getServiceNamesUseCase.getServiceNames()) {
-            case GetServiceNamesUseCase.GetServiceNamesResult.Success success ->
-                    ResponseEntity.ok(ServiceNamesHttpResponse.from(success.serviceNames()));
-            case GetServiceNamesUseCase.GetServiceNamesResult.Failure _ -> ResponseEntity
+    public ResponseEntity<?> getServiceSummaries() {
+        return switch (getServiceSummariesUseCase.getServiceSummaries()) {
+            case GetServiceSummariesUseCase.GetServiceSummariesResult.Success success ->
+                    ResponseEntity.ok(ServiceSummariesHttpResponse.from(success.services()));
+            case GetServiceSummariesUseCase.GetServiceSummariesResult.Failure _ -> ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .build();
         };
@@ -105,13 +106,32 @@ public class ServiceController {
         }
     }
 
-    public record ServiceNamesHttpResponse(List<String> serviceNames) {
+    public record ServiceSummariesHttpResponse(List<ServiceSummaryHttpResponse> services) {
 
-        static ServiceNamesHttpResponse from(List<ServiceName> serviceNames) {
-            return new ServiceNamesHttpResponse(serviceNames
+        static ServiceSummariesHttpResponse from(List<ServiceSummary> services) {
+            return new ServiceSummariesHttpResponse(services
                     .stream()
-                    .map(ServiceName::value)
+                    .map(ServiceSummaryHttpResponse::from)
                     .toList());
+        }
+    }
+
+    public record ServiceSummaryHttpResponse(
+            String name,
+            String imageRepository,
+            String deployedVersion,
+            String status
+    ) {
+
+        static ServiceSummaryHttpResponse from(ServiceSummary service) {
+            return new ServiceSummaryHttpResponse(
+                    service.name().value(),
+                    service.imageRepository().value(),
+                    service.deployedVersion()
+                            .map(imageVersion -> imageVersion.value())
+                            .orElse(null),
+                    service.status().name()
+            );
         }
     }
 }

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Deployko Services</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body data-page="services">
+<header class="topbar">
+    <div>
+        <p class="eyebrow">Deployko</p>
+        <h1>Services</h1>
+    </div>
+    <button class="secondary" type="button" data-action="refresh-services">Refresh</button>
+</header>
+
+<main class="shell">
+    <section class="band">
+        <div class="section-title">
+            <div>
+                <h2>Create service</h2>
+                <p>Add a service definition with an image repository.</p>
+            </div>
+        </div>
+        <form id="create-service-form" class="form-grid">
+            <label>
+                Service name
+                <input name="name" autocomplete="off" required placeholder="nginx">
+            </label>
+            <label>
+                Image repository
+                <input name="imageRepository" autocomplete="off" required placeholder="library/nginx">
+            </label>
+            <button type="submit">Create</button>
+        </form>
+    </section>
+
+    <section class="band">
+        <div class="section-title">
+            <div>
+                <h2>Managed services</h2>
+                <p>Configure, deploy, start, stop, or remove service definitions.</p>
+            </div>
+            <span id="service-count" class="pill">0 services</span>
+        </div>
+        <div id="services-status" class="status" hidden></div>
+        <div id="services-list" class="service-grid"></div>
+    </section>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,12 +1,14 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
+import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
+import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
-import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,11 +19,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICES;
 
 @Component
 public final class ServiceDefinitionPersistenceAdapter
-        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, FindServiceNamesPort {
+        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, FindServiceSummaryCandidatesPort {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceDefinitionPersistenceAdapter.class);
 
@@ -82,18 +85,32 @@ public final class ServiceDefinitionPersistenceAdapter
     }
 
     @Override
-    public FindServiceNamesResult findServiceNames() {
+    public FindServiceSummaryCandidatesResult findServiceSummaryCandidates() {
         try {
-            List<ServiceName> serviceNames = dsl
-                    .select(SERVICES.NAME)
+            List<ServiceSummaryCandidate> services = dsl
+                    .select(
+                            SERVICES.NAME,
+                            SERVICES.IMAGE_REPOSITORY,
+                            SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION,
+                            SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE
+                    )
                     .from(SERVICES)
+                    .leftJoin(SERVICE_DESIRED_DEPLOYMENTS)
+                    .on(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID.eq(SERVICES.ID))
                     .orderBy(SERVICES.NAME)
-                    .fetch(record -> new ServiceName(record.get(SERVICES.NAME)));
+                    .fetch(record -> new ServiceSummaryCandidate(
+                            new ServiceName(record.get(SERVICES.NAME)),
+                            new ImageRepository(record.get(SERVICES.IMAGE_REPOSITORY)),
+                            Optional.ofNullable(record.get(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION))
+                                    .map(ImageVersion::new),
+                            Optional.ofNullable(record.get(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE))
+                                    .map(DesiredDeploymentState::valueOf)
+                    ));
 
-            return new FindServiceNamesResult.Found(serviceNames);
-        } catch (DataAccessException exception) {
-            log.error("error while finding service names", exception);
-            return new FindServiceNamesResult.Failure();
+            return new FindServiceSummaryCandidatesResult.Found(services);
+        } catch (DataAccessException | IllegalArgumentException exception) {
+            log.error("error while finding service summary candidates", exception);
+            return new FindServiceSummaryCandidatesResult.Failure();
         }
     }
 
