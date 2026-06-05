@@ -114,6 +114,10 @@
         return [...versions].sort((left, right) => collator.compare(right, left));
     }
 
+    function displayStatus(status) {
+        return (status || "UNKNOWN").replaceAll("_", " ");
+    }
+
     if (page === "services") {
         initServicesPage();
     }
@@ -191,7 +195,7 @@
                 row.querySelector(".service-name-link").textContent = serviceName;
                 row.children[1].textContent = service.imageRepository;
                 row.children[2].textContent = service.deployedVersion || "Not deployed";
-                row.querySelector(".status-pill").textContent = service.status;
+                row.querySelector(".status-pill").textContent = displayStatus(service.status);
                 list.appendChild(row);
             });
         }
@@ -350,7 +354,7 @@
 
                 imageRepository.textContent = service.imageRepository;
                 deployedVersion.textContent = service.deployedVersion || "Not deployed";
-                runtimeStatus.textContent = service.status;
+                runtimeStatus.textContent = displayStatus(service.status);
             } catch (error) {
                 showStatus(serviceStatus, error.message, "error");
             }

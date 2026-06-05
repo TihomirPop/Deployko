@@ -324,8 +324,12 @@ td select {
     display: inline-flex;
     font-size: 0.78rem;
     font-weight: 750;
+    justify-content: center;
+    max-width: 100%;
+    overflow-wrap: anywhere;
     padding: 5px 8px;
-    white-space: nowrap;
+    text-align: center;
+    white-space: normal;
 }
 
 .service-summary {
