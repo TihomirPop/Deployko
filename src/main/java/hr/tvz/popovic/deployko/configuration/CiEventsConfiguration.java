@@ -2,7 +2,6 @@ package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.application.domain.service.CiPipelineCompletedEventDomainService;
 import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
-import hr.tvz.popovic.deployko.application.port.in.HandleCiPipelineCompletedEventUseCase;
 import hr.tvz.popovic.deployko.application.port.out.FindLastCiDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordCiDeploymentPort;
 import org.springframework.amqp.core.Binding;
@@ -76,13 +75,6 @@ public class CiEventsConfiguration {
                 clock,
                 properties.deploymentThrottleWindow()
         );
-    }
-
-    @Bean
-    HandleCiPipelineCompletedEventUseCase handleCiPipelineCompletedEventUseCase(
-            CiPipelineCompletedEventDomainService service
-    ) {
-        return service;
     }
 
     @Bean

@@ -23,4 +23,4 @@ deployko:
     batch-size: ${DEPLOYKO_CI_EVENTS_BATCH_SIZE:10}
     receive-timeout-millis: ${DEPLOYKO_CI_EVENTS_RECEIVE_TIMEOUT_MILLIS:1000}
     deployment-throttle-window: ${DEPLOYKO_CI_EVENTS_DEPLOYMENT_THROTTLE_WINDOW:PT5M}
-    listener-auto-startup: ${DEPLOYKO_CI_EVENTS_LISTENER_AUTO_STARTUP:true}
+    listener-auto-startup: ${DEPLOYKO_CI_EVENTS_LISTENER_AUTO_STARTUP:false}

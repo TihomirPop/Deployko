@@ -1,11 +1,6 @@
 package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeDomainService;
-import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
-import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCase;
-import hr.tvz.popovic.deployko.application.port.in.GetServiceSummariesUseCase;
-import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
-import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
@@ -46,30 +41,4 @@ public class ServiceRuntimeConfiguration {
         );
     }
 
-    @Bean
-    DeployServiceUseCase deployServiceUseCase(ServiceRuntimeDomainService serviceRuntimeDomainService) {
-        return serviceRuntimeDomainService;
-    }
-
-    @Bean
-    StartServiceUseCase startServiceUseCase(ServiceRuntimeDomainService serviceRuntimeDomainService) {
-        return serviceRuntimeDomainService;
-    }
-
-    @Bean
-    StopServiceUseCase stopServiceUseCase(ServiceRuntimeDomainService serviceRuntimeDomainService) {
-        return serviceRuntimeDomainService;
-    }
-
-    @Bean
-    GetServiceRuntimeStatusUseCase getServiceRuntimeStatusUseCase(
-            ServiceRuntimeDomainService serviceRuntimeDomainService
-    ) {
-        return serviceRuntimeDomainService;
-    }
-
-    @Bean
-    GetServiceSummariesUseCase getServiceSummariesUseCase(ServiceRuntimeDomainService serviceRuntimeDomainService) {
-        return serviceRuntimeDomainService;
-    }
 }

@@ -1,8 +1,6 @@
 package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.application.domain.service.ServiceDefinitionDomainService;
-import hr.tvz.popovic.deployko.application.port.in.CreateServiceUseCase;
-import hr.tvz.popovic.deployko.application.port.in.DeleteServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -18,16 +16,6 @@ public class ServiceDefinitionConfiguration {
             DeleteServiceByNamePort deleteServiceByNamePort
     ) {
         return new ServiceDefinitionDomainService(createServicePort, deleteServiceByNamePort);
-    }
-
-    @Bean
-    CreateServiceUseCase createServiceUseCase(ServiceDefinitionDomainService serviceDefinitionDomainService) {
-        return serviceDefinitionDomainService;
-    }
-
-    @Bean
-    DeleteServiceUseCase deleteServiceUseCase(ServiceDefinitionDomainService serviceDefinitionDomainService) {
-        return serviceDefinitionDomainService;
     }
 
     @Bean

@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -33,7 +32,7 @@ public final class CiPipelineCompletedEventRabbitListener {
 
     public CiPipelineCompletedEventRabbitListener(
             ObjectMapper objectMapper,
-            @Qualifier("handleCiPipelineCompletedEventUseCase") HandleCiPipelineCompletedEventUseCase useCase
+            HandleCiPipelineCompletedEventUseCase useCase
     ) {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.useCase = Objects.requireNonNull(useCase, "useCase must not be null");

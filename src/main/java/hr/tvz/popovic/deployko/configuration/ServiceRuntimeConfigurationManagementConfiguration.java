@@ -1,20 +1,6 @@
 package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeConfigurationDomainService;
-import hr.tvz.popovic.deployko.application.port.in.CreateServiceNetworkAttachmentUseCase;
-import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
-import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
-import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
-import hr.tvz.popovic.deployko.application.port.in.DeleteServiceNetworkAttachmentUseCase;
-import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
-import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
-import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
-import hr.tvz.popovic.deployko.application.port.in.GetServiceNetworkAttachmentsUseCase;
-import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
-import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
-import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
-import hr.tvz.popovic.deployko.application.port.in.UpdateServiceEnvironmentVariableUseCase;
-import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
@@ -69,104 +55,6 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
                 createServiceNetworkAttachmentPort,
                 deleteServiceNetworkAttachmentPort
         );
-    }
-
-    @Bean
-    CreateServiceEnvironmentVariableUseCase createServiceEnvironmentVariableUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    UpdateServiceEnvironmentVariableUseCase updateServiceEnvironmentVariableUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    DeleteServiceEnvironmentVariableUseCase deleteServiceEnvironmentVariableUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    GetServiceEnvironmentVariablesUseCase getServiceEnvironmentVariablesUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    GetServicePortMappingsUseCase getServicePortMappingsUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    DeleteServicePortMappingUseCase deleteServicePortMappingUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    CreateServicePortMappingUseCase createServicePortMappingUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    DeleteServiceVolumeMountUseCase deleteServiceVolumeMountUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    GetServiceNetworkAttachmentsUseCase getServiceNetworkAttachmentsUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    CreateServiceNetworkAttachmentUseCase createServiceNetworkAttachmentUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
-    }
-
-    @Bean
-    DeleteServiceNetworkAttachmentUseCase deleteServiceNetworkAttachmentUseCase(
-            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
-    ) {
-        return serviceRuntimeConfigurationDomainService;
     }
 
     @Bean

@@ -10,10 +10,6 @@ import hr.tvz.popovic.deployko.adapter.out.docker.DockerDeployContainerAdapter;
 import hr.tvz.popovic.deployko.adapter.out.docker.DockerFindActualDeploymentStateAdapter;
 import hr.tvz.popovic.deployko.adapter.out.docker.DockerStartContainerAdapter;
 import hr.tvz.popovic.deployko.adapter.out.docker.DockerStopContainerAdapter;
-import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
-import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
-import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
-import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -39,22 +35,22 @@ public class DockerClientConfiguration {
     }
 
     @Bean
-    DeployContainerPort deployContainerPort(DockerClient dockerClient) {
+    DockerDeployContainerAdapter dockerDeployContainerAdapter(DockerClient dockerClient) {
         return new DockerDeployContainerAdapter(dockerClient);
     }
 
     @Bean
-    StartContainerPort startContainerPort(DockerClient dockerClient) {
+    DockerStartContainerAdapter dockerStartContainerAdapter(DockerClient dockerClient) {
         return new DockerStartContainerAdapter(dockerClient);
     }
 
     @Bean
-    StopContainerPort stopContainerPort(DockerClient dockerClient) {
+    DockerStopContainerAdapter dockerStopContainerAdapter(DockerClient dockerClient) {
         return new DockerStopContainerAdapter(dockerClient);
     }
 
     @Bean
-    FindActualDeploymentStatePort findActualDeploymentStatePort(DockerClient dockerClient) {
+    DockerFindActualDeploymentStateAdapter dockerFindActualDeploymentStateAdapter(DockerClient dockerClient) {
         return new DockerFindActualDeploymentStateAdapter(dockerClient);
     }
 }

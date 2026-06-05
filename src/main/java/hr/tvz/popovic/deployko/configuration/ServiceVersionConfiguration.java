@@ -2,7 +2,6 @@ package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.adapter.out.registry.RegistryFindImageVersionsAdapter;
 import hr.tvz.popovic.deployko.application.domain.service.ServiceVersionDomainService;
-import hr.tvz.popovic.deployko.application.port.in.GetServiceVersionsUseCase;
 import hr.tvz.popovic.deployko.application.port.out.FindImageVersionsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import org.springframework.context.annotation.Bean;
@@ -20,12 +19,7 @@ public class ServiceVersionConfiguration {
     }
 
     @Bean
-    GetServiceVersionsUseCase getServiceVersionsUseCase(ServiceVersionDomainService serviceVersionDomainService) {
-        return serviceVersionDomainService;
-    }
-
-    @Bean
-    FindImageVersionsPort findImageVersionsPort() {
+    RegistryFindImageVersionsAdapter registryFindImageVersionsAdapter() {
         return new RegistryFindImageVersionsAdapter();
     }
 }
