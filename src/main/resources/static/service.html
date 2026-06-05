@@ -9,14 +9,52 @@
 <body data-page="configuration">
 <header class="topbar">
     <div>
-        <a class="back-link" href="/index.html">Back to services</a>
-        <p class="eyebrow">Runtime configuration</p>
+        <p class="eyebrow">Service</p>
         <h1 id="service-title">Service</h1>
     </div>
-    <button class="secondary" type="button" data-action="refresh-config">Refresh</button>
+    <div class="topbar-actions">
+        <a class="button-link secondary" href="/index.html">Back to services</a>
+        <button class="secondary" type="button" data-action="refresh-config">Refresh</button>
+    </div>
 </header>
 
 <main class="shell">
+    <section class="band">
+        <div class="section-title">
+            <div>
+                <h2>Current configuration</h2>
+                <p>Manage the selected service deployment and runtime settings.</p>
+            </div>
+            <span id="runtime-status" class="pill">Status unknown</span>
+        </div>
+        <dl class="service-summary">
+            <div>
+                <dt>Image repository</dt>
+                <dd id="image-repository">Unknown</dd>
+            </div>
+            <div>
+                <dt>Version</dt>
+                <dd id="deployed-version">Not deployed</dd>
+            </div>
+        </dl>
+        <div class="service-deploy">
+            <div class="version-row">
+                <input data-role="image-version" placeholder="Image version">
+                <select data-role="version-select" aria-label="Available image versions">
+                    <option value="">No loaded versions</option>
+                </select>
+                <button class="secondary" type="button" data-action="load-versions">Sync</button>
+                <button type="button" data-action="deploy">Deploy</button>
+            </div>
+            <div class="action-row left">
+                <button class="secondary" type="button" data-action="start">Start</button>
+                <button class="secondary" type="button" data-action="stop">Stop</button>
+                <button class="danger" type="button" data-action="delete">Delete</button>
+            </div>
+        </div>
+        <div id="service-status" class="status" hidden></div>
+    </section>
+
     <section class="band">
         <div class="section-title">
             <div>

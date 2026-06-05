@@ -143,13 +143,20 @@ td select {
     display: flex;
     justify-content: space-between;
     gap: 24px;
-    padding: 30px clamp(18px, 4vw, 48px);
+    padding: 18px clamp(18px, 4vw, 48px);
 }
 
 .topbar h1 {
-    font-size: clamp(2rem, 5vw, 3.25rem);
-    line-height: 1.02;
+    font-size: clamp(1.55rem, 3vw, 2.2rem);
+    line-height: 1.08;
     margin: 3px 0 0;
+}
+
+.topbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
 }
 
 .topbar .secondary {
@@ -259,6 +266,94 @@ td select {
     gap: 14px;
 }
 
+.services-table {
+    table-layout: fixed;
+}
+
+.services-table th:nth-child(1),
+.services-table td:nth-child(1) {
+    width: clamp(180px, 24%, 300px);
+}
+
+.services-table th:nth-child(2),
+.services-table td:nth-child(2) {
+    width: 42%;
+}
+
+.services-table th:nth-child(3),
+.services-table td:nth-child(3) {
+    width: 20%;
+}
+
+.services-table th:nth-child(4),
+.services-table td:nth-child(4) {
+    width: 14%;
+}
+
+.services-table td {
+    padding-right: clamp(18px, 4vw, 54px);
+}
+
+.services-table th:last-child,
+.services-table td:last-child {
+    padding-right: 12px;
+}
+
+.services-table td:nth-child(1),
+.services-table td:nth-child(2),
+.services-table td:nth-child(3) {
+    overflow-wrap: anywhere;
+}
+
+.service-name-link {
+    color: var(--accent-dark);
+    font-weight: 800;
+    overflow-wrap: anywhere;
+    text-decoration: none;
+}
+
+.service-name-link:hover {
+    text-decoration: underline;
+}
+
+.status-pill {
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text);
+    display: inline-flex;
+    font-size: 0.78rem;
+    font-weight: 750;
+    padding: 5px 8px;
+    white-space: nowrap;
+}
+
+.service-summary {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+    margin: 0 0 18px;
+}
+
+.service-summary div {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.service-summary dt {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.service-summary dd {
+    font-weight: 750;
+    margin: 5px 0 0;
+    overflow-wrap: anywhere;
+}
+
 .service-card {
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -317,6 +412,10 @@ td select {
 
 .action-row {
     justify-content: flex-end;
+}
+
+.action-row.left {
+    justify-content: flex-start;
 }
 
 .status {
@@ -384,7 +483,8 @@ td select {
     .form-grid.compact,
     .form-grid.ports,
     .form-grid.volumes,
-    .service-card {
+    .service-card,
+    .service-summary {
         grid-template-columns: 1fr;
     }
 
@@ -395,6 +495,11 @@ td select {
     .topbar {
         align-items: flex-start;
         flex-direction: column;
+        gap: 14px;
+    }
+
+    .topbar-actions {
+        justify-content: flex-start;
     }
 }
 
@@ -402,6 +507,14 @@ td select {
     th,
     td {
         padding: 10px 8px;
+    }
+
+    .services-table {
+        min-width: 720px;
+    }
+
+    .services-table td {
+        padding-right: 20px;
     }
 
     .section-title {
@@ -415,6 +528,10 @@ td select {
 
     button,
     .button-link {
+        width: 100%;
+    }
+
+    .topbar-actions {
         width: 100%;
     }
 

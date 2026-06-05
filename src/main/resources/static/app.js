@@ -106,6 +106,14 @@
         return `/services/${pathPart(serviceName)}${suffix}`;
     }
 
+    function sortVersions(versions) {
+        const collator = new Intl.Collator(undefined, {
+            numeric: true,
+            sensitivity: "base",
+        });
+        return [...versions].sort((left, right) => collator.compare(right, left));
+    }
+
     if (page === "services") {
         initServicesPage();
     }
@@ -146,49 +154,6 @@
             }
         });
 
-        list.addEventListener("click", async event => {
-            const target = event.target.closest("[data-action]");
-            if (!target) {
-                return;
-            }
-
-            const card = target.closest(".service-card");
-            const serviceName = card.dataset.serviceName;
-            const action = target.dataset.action;
-
-            if (action === "load-versions") {
-                await loadVersions(card, target, serviceName);
-            }
-
-            if (action === "deploy") {
-                await deployService(card, target, serviceName);
-                await loadServices();
-            }
-
-            if (action === "start") {
-                await postRuntime(target, serviceName, "/runtime/start", "Service start requested.");
-                await loadServices();
-            }
-
-            if (action === "stop") {
-                await postRuntime(target, serviceName, "/runtime/stop", "Service stop requested.");
-                await loadServices();
-            }
-
-            if (action === "delete") {
-                await deleteService(target, serviceName);
-            }
-        });
-
-        list.addEventListener("change", event => {
-            const select = event.target.closest("[data-role='version-select']");
-            if (!select || !select.value) {
-                return;
-            }
-            const card = select.closest(".service-card");
-            card.querySelector("[data-role='image-version']").value = select.value;
-        });
-
         loadServices();
 
         async function loadServices() {
@@ -216,50 +181,41 @@
             list.innerHTML = "";
             services.forEach(service => {
                 const serviceName = service.name;
-                const card = document.createElement("article");
-                card.className = "service-card";
-                card.dataset.serviceName = serviceName;
-                card.innerHTML = `
-                    <div>
-                        <div class="service-name"></div>
-                        <div class="service-meta"></div>
-                        <div class="service-facts">
-                            <span data-role="deployed-version"></span>
-                            <span data-role="runtime-status"></span>
-                        </div>
-                    </div>
-                    <div class="service-deploy">
-                        <div class="version-row">
-                            <input data-role="image-version" placeholder="Image version">
-                            <select data-role="version-select" aria-label="Available image versions">
-                                <option value="">No loaded versions</option>
-                            </select>
-                            <button class="secondary" type="button" data-action="load-versions">Versions</button>
-                            <button type="button" data-action="deploy">Deploy</button>
-                        </div>
-                    </div>
-                    <div class="action-row">
-                        <a class="button-link secondary" href="/service.html?serviceName=${queryPart(serviceName)}">Config</a>
-                        <button class="secondary" type="button" data-action="start">Start</button>
-                        <button class="secondary" type="button" data-action="stop">Stop</button>
-                        <button class="danger" type="button" data-action="delete">Delete</button>
-                    </div>
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td><a class="service-name-link" href="/service.html?serviceName=${queryPart(serviceName)}"></a></td>
+                    <td></td>
+                    <td></td>
+                    <td><span class="status-pill"></span></td>
                 `;
-                card.querySelector(".service-name").textContent = serviceName;
-                card.querySelector(".service-meta").textContent = service.imageRepository;
-                card.querySelector("[data-role='deployed-version']").textContent =
-                    `Version: ${service.deployedVersion || "Not deployed"}`;
-                card.querySelector("[data-role='runtime-status']").textContent = `Status: ${service.status}`;
-                list.appendChild(card);
+                row.querySelector(".service-name-link").textContent = serviceName;
+                row.children[1].textContent = service.imageRepository;
+                row.children[2].textContent = service.deployedVersion || "Not deployed";
+                row.querySelector(".status-pill").textContent = service.status;
+                list.appendChild(row);
             });
         }
+    }
 
-        async function loadVersions(card, button, serviceName) {
+    function initConfigurationPage() {
+        const params = new URLSearchParams(window.location.search);
+        const serviceName = params.get("serviceName");
+        const title = document.getElementById("service-title");
+        const serviceStatus = document.getElementById("service-status");
+        const imageRepository = document.getElementById("image-repository");
+        const deployedVersion = document.getElementById("deployed-version");
+        const runtimeStatus = document.getElementById("runtime-status");
+        const environmentStatus = document.getElementById("environment-status");
+        const portsStatus = document.getElementById("ports-status");
+        const volumesStatus = document.getElementById("volumes-status");
+        const networksStatus = document.getElementById("networks-status");
+
+        async function loadVersions(button, serviceName) {
             setBusy(button, true);
             try {
                 const data = await api(serviceUrl(serviceName, "/versions"));
                 const versions = data.imageVersions || [];
-                const select = card.querySelector("[data-role='version-select']");
+                const select = document.querySelector("[data-role='version-select']");
                 select.innerHTML = "";
                 if (versions.length === 0) {
                     select.innerHTML = "<option value=''>No versions found</option>";
@@ -267,14 +223,14 @@
                     return;
                 }
 
-                versions.forEach(version => {
+                sortVersions(versions).forEach(version => {
                     const option = document.createElement("option");
                     option.value = version;
                     option.textContent = version;
                     select.appendChild(option);
                 });
-                card.querySelector("[data-role='image-version']").value = versions[0];
-                showToast("Versions loaded.");
+                document.querySelector("[data-role='image-version']").value = select.value;
+                showToast("Versions synced.");
             } catch (error) {
                 showToast(error.message);
             } finally {
@@ -282,8 +238,8 @@
             }
         }
 
-        async function deployService(card, button, serviceName) {
-            const input = card.querySelector("[data-role='image-version']");
+        async function deployService(button, serviceName) {
+            const input = document.querySelector("[data-role='image-version']");
             const imageVersion = input.value.trim();
             if (!imageVersion) {
                 showToast("Enter an image version before deploying.");
@@ -318,23 +274,13 @@
             try {
                 await api(serviceUrl(serviceName, ""), { method: "DELETE" });
                 showToast("Service deleted.");
-                await loadServices();
+                window.location.href = "/index.html";
             } catch (error) {
                 showToast(error.message);
             } finally {
                 setBusy(button, false);
             }
         }
-    }
-
-    function initConfigurationPage() {
-        const params = new URLSearchParams(window.location.search);
-        const serviceName = params.get("serviceName");
-        const title = document.getElementById("service-title");
-        const environmentStatus = document.getElementById("environment-status");
-        const portsStatus = document.getElementById("ports-status");
-        const volumesStatus = document.getElementById("volumes-status");
-        const networksStatus = document.getElementById("networks-status");
 
         if (!serviceName) {
             title.textContent = "Missing service";
@@ -344,6 +290,29 @@
 
         title.textContent = serviceName;
         document.querySelector("[data-action='refresh-config']").addEventListener("click", loadConfiguration);
+        document.querySelector("[data-action='load-versions']").addEventListener("click", event => {
+            loadVersions(event.currentTarget, serviceName);
+        });
+        document.querySelector("[data-action='deploy']").addEventListener("click", async event => {
+            await deployService(event.currentTarget, serviceName);
+            await loadServiceSummary();
+        });
+        document.querySelector("[data-action='start']").addEventListener("click", async event => {
+            await postRuntime(event.currentTarget, serviceName, "/runtime/start", "Service start requested.");
+            await loadServiceSummary();
+        });
+        document.querySelector("[data-action='stop']").addEventListener("click", async event => {
+            await postRuntime(event.currentTarget, serviceName, "/runtime/stop", "Service stop requested.");
+            await loadServiceSummary();
+        });
+        document.querySelector("[data-action='delete']").addEventListener("click", event => {
+            deleteService(event.currentTarget, serviceName);
+        });
+        document.querySelector("[data-role='version-select']").addEventListener("change", event => {
+            if (event.currentTarget.value) {
+                document.querySelector("[data-role='image-version']").value = event.currentTarget.value;
+            }
+        });
         document.getElementById("environment-form").addEventListener("submit", createEnvironmentVariable);
         document.getElementById("port-form").addEventListener("submit", createPortMapping);
         document.getElementById("volume-form").addEventListener("submit", createVolumeMount);
@@ -357,12 +326,34 @@
         loadConfiguration();
 
         async function loadConfiguration() {
+            await loadServiceSummary();
             await Promise.all([
                 loadEnvironmentVariables(),
                 loadPortMappings(),
                 loadVolumeMounts(),
                 loadNetworkAttachments(),
             ]);
+        }
+
+        async function loadServiceSummary() {
+            clearStatus(serviceStatus);
+            try {
+                const data = await api("/services");
+                const service = (data.services || []).find(candidate => candidate.name === serviceName);
+                if (!service) {
+                    imageRepository.textContent = "Unknown";
+                    deployedVersion.textContent = "Not deployed";
+                    runtimeStatus.textContent = "Missing service";
+                    showStatus(serviceStatus, "The service was not found.", "error");
+                    return;
+                }
+
+                imageRepository.textContent = service.imageRepository;
+                deployedVersion.textContent = service.deployedVersion || "Not deployed";
+                runtimeStatus.textContent = service.status;
+            } catch (error) {
+                showStatus(serviceStatus, error.message, "error");
+            }
         }
 
         async function loadEnvironmentVariables() {

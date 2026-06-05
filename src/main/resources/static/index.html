@@ -40,12 +40,24 @@
         <div class="section-title">
             <div>
                 <h2>Managed services</h2>
-                <p>Configure, deploy, start, stop, or remove service definitions.</p>
+                <p>Open a service to manage deployment and runtime configuration.</p>
             </div>
             <span id="service-count" class="pill">0 services</span>
         </div>
         <div id="services-status" class="status" hidden></div>
-        <div id="services-list" class="service-grid"></div>
+        <div class="table-wrap">
+            <table class="services-table">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Image repository</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody id="services-list"></tbody>
+            </table>
+        </div>
     </section>
 </main>
 
