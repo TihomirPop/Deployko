@@ -6,6 +6,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables;
 
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Keys;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Public;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceCiDeployments.ServiceCiDeploymentsPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeployments.ServiceDesiredDeploymentsPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceEnvironmentVariables.ServiceEnvironmentVariablesPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceNetworkAttachments.ServiceNetworkAttachmentsPath;
@@ -162,6 +163,19 @@ public class Services extends TableImpl<ServicesRecord> {
     @Override
     public List<UniqueKey<ServicesRecord>> getUniqueKeys() {
         return Arrays.asList(Keys.SERVICES_NAME_KEY);
+    }
+
+    private transient ServiceCiDeploymentsPath _serviceCiDeployments;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.service_ci_deployments</code> table
+     */
+    public ServiceCiDeploymentsPath serviceCiDeployments() {
+        if (_serviceCiDeployments == null)
+            _serviceCiDeployments = new ServiceCiDeploymentsPath(this, null, Keys.SERVICE_CI_DEPLOYMENTS__SERVICE_CI_DEPLOYMENTS_SERVICE_ID_FKEY.getInverseKey());
+
+        return _serviceCiDeployments;
     }
 
     private transient ServiceDesiredDeploymentsPath _serviceDesiredDeployments;

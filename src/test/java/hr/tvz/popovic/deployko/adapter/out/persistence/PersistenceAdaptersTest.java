@@ -25,12 +25,14 @@ import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
+import hr.tvz.popovic.deployko.application.port.out.FindLastCiDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceNetworkAttachmentsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
+import hr.tvz.popovic.deployko.application.port.out.RecordCiDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
@@ -45,6 +47,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.time.OffsetDateTime;
+
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_CI_DEPLOYMENTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS;
@@ -69,6 +74,7 @@ class PersistenceAdaptersTest {
     private static DSLContext dsl;
     private static ServiceDefinitionPersistenceAdapter serviceDefinitions;
     private static DesiredDeploymentPersistenceAdapter desiredDeployments;
+    private static CiDeploymentPersistenceAdapter ciDeployments;
     private static ServiceEnvironmentVariablePersistenceAdapter environmentVariables;
     private static ServicePortMappingPersistenceAdapter portMappings;
     private static ServiceVolumeMountPersistenceAdapter volumeMounts;
@@ -86,6 +92,7 @@ class PersistenceAdaptersTest {
         JooqTransactionHelper transactions = new JooqTransactionHelper(dsl);
         serviceDefinitions = new ServiceDefinitionPersistenceAdapter(dsl, transactions);
         desiredDeployments = new DesiredDeploymentPersistenceAdapter(dsl, transactions);
+        ciDeployments = new CiDeploymentPersistenceAdapter(dsl);
         environmentVariables = new ServiceEnvironmentVariablePersistenceAdapter(dsl, transactions);
         portMappings = new ServicePortMappingPersistenceAdapter(dsl, transactions);
         volumeMounts = new ServiceVolumeMountPersistenceAdapter(dsl, transactions);
@@ -1018,6 +1025,53 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void record_ci_deployment_upserts_last_deployed_timestamp() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        OffsetDateTime firstDeployment = OffsetDateTime.parse("2026-06-05T10:00:00Z");
+        OffsetDateTime secondDeployment = OffsetDateTime.parse("2026-06-05T10:05:00Z");
+
+        RecordCiDeploymentPort.RecordCiDeploymentResult firstResult =
+                ciDeployments.recordCiDeployment(service.name(), firstDeployment);
+        RecordCiDeploymentPort.RecordCiDeploymentResult secondResult =
+                ciDeployments.recordCiDeployment(service.name(), secondDeployment);
+        FindLastCiDeploymentPort.FindLastCiDeploymentResult findResult =
+                ciDeployments.findLastCiDeployment(service.name());
+
+        assertThat(firstResult).isInstanceOf(RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded.class);
+        assertThat(secondResult).isInstanceOf(RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded.class);
+        assertThat(findResult).isInstanceOf(FindLastCiDeploymentPort.FindLastCiDeploymentResult.Found.class);
+        FindLastCiDeploymentPort.FindLastCiDeploymentResult.Found found =
+                (FindLastCiDeploymentPort.FindLastCiDeploymentResult.Found) findResult;
+        assertThat(found.deployedAt().toInstant()).isEqualTo(secondDeployment.toInstant());
+        assertThat(dsl.fetchCount(SERVICE_CI_DEPLOYMENTS)).isEqualTo(1);
+    }
+
+    @Test
+    void find_last_ci_deployment_returns_not_deployed_when_timestamp_does_not_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        FindLastCiDeploymentPort.FindLastCiDeploymentResult result =
+                ciDeployments.findLastCiDeployment(service.name());
+
+        assertThat(result).isInstanceOf(FindLastCiDeploymentPort.FindLastCiDeploymentResult.NotDeployed.class);
+    }
+
+    @Test
+    void ci_deployment_adapter_returns_service_not_found_when_service_does_not_exist() {
+        ServiceName missingService = new ServiceName("missing-api");
+
+        FindLastCiDeploymentPort.FindLastCiDeploymentResult findResult =
+                ciDeployments.findLastCiDeployment(missingService);
+        RecordCiDeploymentPort.RecordCiDeploymentResult recordResult =
+                ciDeployments.recordCiDeployment(missingService, OffsetDateTime.parse("2026-06-05T10:00:00Z"));
+
+        assertThat(findResult).isInstanceOf(FindLastCiDeploymentPort.FindLastCiDeploymentResult.ServiceNotFound.class);
+        assertThat(recordResult).isInstanceOf(RecordCiDeploymentPort.RecordCiDeploymentResult.ServiceNotFound.class);
     }
 
     @Test

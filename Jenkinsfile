@@ -1,5 +1,6 @@
 def appName = "deployko"
 def imageTag = ""
+def imageVersion = ""
 
 pipeline {
     agent any
@@ -8,7 +9,8 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    imageTag = "${env.REGISTRY_URL}/${appName}:${env.BUILD_NUMBER}-${env.GIT_COMMIT?.take(7) ?: 'latest'}"
+                    imageVersion = "${env.BUILD_NUMBER}-${env.GIT_COMMIT?.take(7) ?: 'latest'}"
+                    imageTag = "${env.REGISTRY_URL}/${appName}:${imageVersion}"
                     echo "Docker image tag: ${imageTag}"
                 }
             }
@@ -50,8 +52,16 @@ pipeline {
                         rabbitName: 'rabbitmq',
                         exchange: 'ci-events',
                         routingKey: 'pipeline.completed',
-                        data: "event=pipeline_completed\nstatus=success\nrepo=${env.GIT_URL}\ntag=${imageTag}\nbuildNumber=${env.BUILD_NUMBER}",
-                        toJson: true
+                        data: groovy.json.JsonOutput.toJson([
+                            event: 'pipeline_completed',
+                            status: 'success',
+                            service: appName,
+                            tag: imageVersion,
+                            repo: env.GIT_URL,
+                            buildNumber: env.BUILD_NUMBER as Integer
+                        ]),
+                        conversion: false,
+                        toJson: false
                     )
                 }
             }

@@ -4,6 +4,7 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated;
 
 
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceCiDeployments;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentEnvironmentVariables;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentNetworkAttachments;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentPortMappings;
@@ -14,6 +15,7 @@ import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.Ser
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServicePortMappings;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceVolumeMounts;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.Services;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records.ServiceCiDeploymentsRecord;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records.ServiceDesiredDeploymentEnvironmentVariablesRecord;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records.ServiceDesiredDeploymentNetworkAttachmentsRecord;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records.ServiceDesiredDeploymentPortMappingsRecord;
@@ -43,6 +45,7 @@ public class Keys {
     // UNIQUE and PRIMARY KEY definitions
     // -------------------------------------------------------------------------
 
+    public static final UniqueKey<ServiceCiDeploymentsRecord> SERVICE_CI_DEPLOYMENTS_PKEY = Internal.createUniqueKey(ServiceCiDeployments.SERVICE_CI_DEPLOYMENTS, DSL.name("service_ci_deployments_pkey"), new TableField[] { ServiceCiDeployments.SERVICE_CI_DEPLOYMENTS.SERVICE_ID }, true);
     public static final UniqueKey<ServiceDesiredDeploymentEnvironmentVariablesRecord> SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES_PKEY = Internal.createUniqueKey(ServiceDesiredDeploymentEnvironmentVariables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES, DSL.name("service_desired_deployment_environment_variables_pkey"), new TableField[] { ServiceDesiredDeploymentEnvironmentVariables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.SERVICE_ID, ServiceDesiredDeploymentEnvironmentVariables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.KEY }, true);
     public static final UniqueKey<ServiceDesiredDeploymentNetworkAttachmentsRecord> SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS_PKEY = Internal.createUniqueKey(ServiceDesiredDeploymentNetworkAttachments.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS, DSL.name("service_desired_deployment_network_attachments_pkey"), new TableField[] { ServiceDesiredDeploymentNetworkAttachments.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS.SERVICE_ID, ServiceDesiredDeploymentNetworkAttachments.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS.NETWORK_NAME }, true);
     public static final UniqueKey<ServiceDesiredDeploymentPortMappingsRecord> SERVICE_DESIRED_DEPLOYMENT_PO_SERVICE_ID_CONTAINER_PORT_CON_KEY = Internal.createUniqueKey(ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS, DSL.name("service_desired_deployment_po_service_id_container_port_con_key"), new TableField[] { ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.SERVICE_ID, ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.CONTAINER_PORT, ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.CONTAINER_PROTOCOL }, true);
@@ -61,6 +64,7 @@ public class Keys {
     // FOREIGN KEY definitions
     // -------------------------------------------------------------------------
 
+    public static final ForeignKey<ServiceCiDeploymentsRecord, ServicesRecord> SERVICE_CI_DEPLOYMENTS__SERVICE_CI_DEPLOYMENTS_SERVICE_ID_FKEY = Internal.createForeignKey(ServiceCiDeployments.SERVICE_CI_DEPLOYMENTS, DSL.name("service_ci_deployments_service_id_fkey"), new TableField[] { ServiceCiDeployments.SERVICE_CI_DEPLOYMENTS.SERVICE_ID }, Keys.SERVICES_PKEY, new TableField[] { Services.SERVICES.ID }, true);
     public static final ForeignKey<ServiceDesiredDeploymentEnvironmentVariablesRecord, ServiceDesiredDeploymentsRecord> SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES__SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLE_SERVICE_ID_FKEY = Internal.createForeignKey(ServiceDesiredDeploymentEnvironmentVariables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES, DSL.name("service_desired_deployment_environment_variable_service_id_fkey"), new TableField[] { ServiceDesiredDeploymentEnvironmentVariables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES.SERVICE_ID }, Keys.SERVICE_DESIRED_DEPLOYMENTS_PKEY, new TableField[] { ServiceDesiredDeployments.SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID }, true);
     public static final ForeignKey<ServiceDesiredDeploymentNetworkAttachmentsRecord, ServiceDesiredDeploymentsRecord> SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS__SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS_SERVICE_ID_FKEY = Internal.createForeignKey(ServiceDesiredDeploymentNetworkAttachments.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS, DSL.name("service_desired_deployment_network_attachments_service_id_fkey"), new TableField[] { ServiceDesiredDeploymentNetworkAttachments.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS.SERVICE_ID }, Keys.SERVICE_DESIRED_DEPLOYMENTS_PKEY, new TableField[] { ServiceDesiredDeployments.SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID }, true);
     public static final ForeignKey<ServiceDesiredDeploymentPortMappingsRecord, ServiceDesiredDeploymentsRecord> SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS__SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS_SERVICE_ID_FKEY = Internal.createForeignKey(ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS, DSL.name("service_desired_deployment_port_mappings_service_id_fkey"), new TableField[] { ServiceDesiredDeploymentPortMappings.SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.SERVICE_ID }, Keys.SERVICE_DESIRED_DEPLOYMENTS_PKEY, new TableField[] { ServiceDesiredDeployments.SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID }, true);
