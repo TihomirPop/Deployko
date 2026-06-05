@@ -1,29 +1,37 @@
 package hr.tvz.popovic.deployko.application.domain.service;
 
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
+import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
+import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachments;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceNetworkAttachmentsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
+import hr.tvz.popovic.deployko.application.port.out.CreateServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNetworkAttachmentsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
@@ -41,6 +49,11 @@ class ServiceRuntimeConfigurationDomainServiceTest {
     private static final EnvironmentVariables.Value ENVIRONMENT_VARIABLE_VALUE = new EnvironmentVariables.Value("prod");
     private static final PortMappings PORT_MAPPINGS = PortMappings.empty()
             .add(new Port(8080), new Port(80));
+    private static final NetworkAttachment NETWORK_ATTACHMENT = new NetworkAttachment(
+            new NetworkAttachment.NetworkName("deployko_backend")
+    );
+    private static final NetworkAttachments NETWORK_ATTACHMENTS = NetworkAttachments.empty()
+            .add(NETWORK_ATTACHMENT);
     private static final VolumeMounts VOLUME_MOUNTS = VolumeMounts.empty()
             .add(new VolumeMount.BindMount(
                     new VolumeMount.HostPath("/opt/deployko/config"),
@@ -629,6 +642,160 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 .isInstanceOf(DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure.class);
     }
 
+    @Test
+    void get_network_attachments_returns_success_when_service_exists() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentFinder(
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Found(
+                        NETWORK_ATTACHMENTS
+                )
+        );
+
+        GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult result =
+                service.getServiceNetworkAttachments(
+                        new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsCommand(SERVICE_NAME)
+                );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Success.class);
+        GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Success success =
+                (GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Success) result;
+        assertThat(success.networkAttachments()).isEqualTo(NETWORK_ATTACHMENTS);
+    }
+
+    @Test
+    void get_network_attachments_returns_not_found_when_service_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentFinder(
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.ServiceNotFound()
+        );
+
+        GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult result =
+                service.getServiceNetworkAttachments(
+                        new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsCommand(SERVICE_NAME)
+                );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.NotFound.class);
+    }
+
+    @Test
+    void get_network_attachments_returns_failure_when_persistence_fails() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentFinder(
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure()
+        );
+
+        GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult result =
+                service.getServiceNetworkAttachments(
+                        new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsCommand(SERVICE_NAME)
+                );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure.class);
+    }
+
+    @Test
+    void create_network_attachment_returns_success_when_attachment_is_created() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentCreator(
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Created()
+        );
+
+        CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult result =
+                service.createServiceNetworkAttachment(createNetworkAttachmentCommand());
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Success.class);
+    }
+
+    @Test
+    void create_network_attachment_returns_service_not_found_when_service_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentCreator(
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.ServiceNotFound()
+        );
+
+        CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult result =
+                service.createServiceNetworkAttachment(createNetworkAttachmentCommand());
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void create_network_attachment_returns_already_exists_when_network_name_conflicts() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentCreator(
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.AlreadyExists()
+        );
+
+        CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult result =
+                service.createServiceNetworkAttachment(createNetworkAttachmentCommand());
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.AlreadyExists.class);
+    }
+
+    @Test
+    void create_network_attachment_returns_failure_when_persistence_fails() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentCreator(
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure()
+        );
+
+        CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult result =
+                service.createServiceNetworkAttachment(createNetworkAttachmentCommand());
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure.class);
+    }
+
+    @Test
+    void delete_network_attachment_returns_success_when_attachment_is_deleted() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentDeleter(
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Deleted()
+        );
+
+        DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult result =
+                service.deleteServiceNetworkAttachment(deleteNetworkAttachmentCommand());
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Success.class);
+    }
+
+    @Test
+    void delete_network_attachment_returns_service_not_found_when_service_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentDeleter(
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.ServiceNotFound()
+        );
+
+        DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult result =
+                service.deleteServiceNetworkAttachment(deleteNetworkAttachmentCommand());
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void delete_network_attachment_returns_attachment_not_found_when_attachment_does_not_exist() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentDeleter(
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.NetworkAttachmentNotFound()
+        );
+
+        DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult result =
+                service.deleteServiceNetworkAttachment(deleteNetworkAttachmentCommand());
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.NetworkAttachmentNotFound.class);
+    }
+
+    @Test
+    void delete_network_attachment_returns_failure_when_persistence_fails() {
+        ServiceRuntimeConfigurationDomainService service = serviceWithNetworkAttachmentDeleter(
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
+        );
+
+        DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult result =
+                service.deleteServiceNetworkAttachment(deleteNetworkAttachmentCommand());
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure.class);
+    }
+
     private static ServiceRuntimeConfigurationDomainService serviceWithPortMappingFinder(
             FindServicePortMappingsPort findPort
     ) {
@@ -643,7 +810,73 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
+        );
+    }
+
+    private static ServiceRuntimeConfigurationDomainService serviceWithNetworkAttachmentFinder(
+            FindServiceNetworkAttachmentsPort findPort
+    ) {
+        return new ServiceRuntimeConfigurationDomainService(
+                _ -> new FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.Failure(),
+                (_, _, _) -> new CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult.Failure(),
+                (_, _, _) -> new UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult.Failure(),
+                (_, _) -> new DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.Failure(),
+                _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
+                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                findPort,
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
+        );
+    }
+
+    private static ServiceRuntimeConfigurationDomainService serviceWithNetworkAttachmentCreator(
+            CreateServiceNetworkAttachmentPort createPort
+    ) {
+        return new ServiceRuntimeConfigurationDomainService(
+                _ -> new FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.Failure(),
+                (_, _, _) -> new CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult.Failure(),
+                (_, _, _) -> new UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult.Failure(),
+                (_, _) -> new DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.Failure(),
+                _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
+                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                createPort,
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
+        );
+    }
+
+    private static ServiceRuntimeConfigurationDomainService serviceWithNetworkAttachmentDeleter(
+            DeleteServiceNetworkAttachmentPort deletePort
+    ) {
+        return new ServiceRuntimeConfigurationDomainService(
+                _ -> new FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.Failure(),
+                (_, _, _) -> new CreateServiceEnvironmentVariablePort.CreateServiceEnvironmentVariableResult.Failure(),
+                (_, _, _) -> new UpdateServiceEnvironmentVariablePort.UpdateServiceEnvironmentVariableResult.Failure(),
+                (_, _) -> new DeleteServiceEnvironmentVariablePort.DeleteServiceEnvironmentVariableResult.Failure(),
+                _ -> new FindServicePortMappingsPort.FindServicePortMappingsResult.Failure(),
+                (_, _, _) -> new CreateServicePortMappingPort.CreateServicePortMappingResult.Failure(),
+                (_, _) -> new DeleteServicePortMappingPort.DeleteServicePortMappingResult.Failure(),
+                _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
+                (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
+                (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                deletePort
         );
     }
 
@@ -661,7 +894,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -679,7 +915,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -697,7 +936,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 findPort,
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -715,7 +957,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 createPort,
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -733,7 +978,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 updatePort,
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -751,7 +999,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                deletePort
+                deletePort,
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -769,7 +1020,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -787,7 +1041,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -805,7 +1062,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -823,7 +1083,10 @@ class ServiceRuntimeConfigurationDomainServiceTest {
                 _ -> new FindServiceVolumeMountsPort.FindServiceVolumeMountsResult.Failure(),
                 (_, _) -> new CreateServiceVolumeMountPort.CreateServiceVolumeMountResult.Failure(),
                 (_, _) -> new UpdateServiceVolumeMountPort.UpdateServiceVolumeMountResult.Failure(),
-                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure()
+                (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure(),
+                _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure(),
+                (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure(),
+                (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure()
         );
     }
 
@@ -875,5 +1138,19 @@ class ServiceRuntimeConfigurationDomainServiceTest {
 
     private static DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountCommand deleteVolumeMountCommand() {
         return new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountCommand(SERVICE_NAME, VOLUME_MOUNT.target());
+    }
+
+    private static CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentCommand createNetworkAttachmentCommand() {
+        return new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentCommand(
+                SERVICE_NAME,
+                NETWORK_ATTACHMENT
+        );
+    }
+
+    private static DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentCommand deleteNetworkAttachmentCommand() {
+        return new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentCommand(
+                SERVICE_NAME,
+                NETWORK_ATTACHMENT.networkName()
+        );
     }
 }

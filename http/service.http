@@ -13,6 +13,7 @@
 @volumeMountType = BIND
 @volumeMountSource = /home/tpopovic/dev/deployko-nginx
 @volumeMountReadOnly = false
+@networkName = deployko_nginx
 
 ### Create service
 POST {{host}}/services
@@ -279,6 +280,53 @@ DELETE {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?tar
 
 ### Delete invalid volume mount
 DELETE {{host}}/services/{{serviceName}}/runtime-configuration/volume-mounts?targetPath=app/config
+
+### Get network attachments
+GET {{host}}/services/{{serviceName}}/runtime-configuration/network-attachments
+
+### Get network attachments missing service
+GET {{host}}/services/missing-service/runtime-configuration/network-attachments
+
+### Create network attachment
+POST {{host}}/services/{{serviceName}}/runtime-configuration/network-attachments
+Content-Type: application/json
+
+{
+  "networkName": "{{networkName}}"
+}
+
+### Create duplicate network attachment
+POST {{host}}/services/{{serviceName}}/runtime-configuration/network-attachments
+Content-Type: application/json
+
+{
+  "networkName": "{{networkName}}"
+}
+
+### Create network attachment missing service
+POST {{host}}/services/missing-service/runtime-configuration/network-attachments
+Content-Type: application/json
+
+{
+  "networkName": "{{networkName}}"
+}
+
+### Create invalid network attachment
+POST {{host}}/services/{{serviceName}}/runtime-configuration/network-attachments
+Content-Type: application/json
+
+{
+  "networkName": "deployko/nginx"
+}
+
+### Delete network attachment
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/network-attachments/{{networkName}}
+
+### Delete network attachment missing service
+DELETE {{host}}/services/missing-service/runtime-configuration/network-attachments/{{networkName}}
+
+### Delete missing network attachment
+DELETE {{host}}/services/{{serviceName}}/runtime-configuration/network-attachments/missing_network
 
 ### Get service versions
 GET {{host}}/services/{{serviceName}}/versions

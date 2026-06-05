@@ -142,6 +142,34 @@
             </table>
         </div>
     </section>
+
+    <section class="band">
+        <div class="section-title">
+            <div>
+                <h2>Network attachments</h2>
+                <p>Docker networks attached to the container during deployment.</p>
+            </div>
+        </div>
+        <form id="network-form" class="form-grid compact">
+            <label>
+                Network name
+                <input name="networkName" autocomplete="off" required placeholder="deployko_nginx">
+            </label>
+            <button type="submit">Add network</button>
+        </form>
+        <div id="networks-status" class="status" hidden></div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Network</th>
+                    <th class="actions-column">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="networks-table"></tbody>
+            </table>
+        </div>
+    </section>
 </main>
 
 <div id="toast" class="toast" hidden></div>

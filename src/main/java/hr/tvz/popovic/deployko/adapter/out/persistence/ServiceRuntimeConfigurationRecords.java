@@ -8,8 +8,10 @@ import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
+
 import java.util.Objects;
 import java.util.UUID;
+
 import org.jooq.DSLContext;
 
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_ENVIRONMENT_VARIABLES;
@@ -111,7 +113,7 @@ final class ServiceRuntimeConfigurationRecords {
         return volumeMounts;
     }
 
-    private NetworkAttachments findNetworkAttachments(UUID serviceId) {
+    NetworkAttachments findNetworkAttachments(UUID serviceId) {
         NetworkAttachments networkAttachments = NetworkAttachments.empty();
 
         var records = dsl

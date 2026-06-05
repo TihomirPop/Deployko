@@ -334,6 +334,7 @@
         const environmentStatus = document.getElementById("environment-status");
         const portsStatus = document.getElementById("ports-status");
         const volumesStatus = document.getElementById("volumes-status");
+        const networksStatus = document.getElementById("networks-status");
 
         if (!serviceName) {
             title.textContent = "Missing service";
@@ -346,10 +347,12 @@
         document.getElementById("environment-form").addEventListener("submit", createEnvironmentVariable);
         document.getElementById("port-form").addEventListener("submit", createPortMapping);
         document.getElementById("volume-form").addEventListener("submit", createVolumeMount);
+        document.getElementById("network-form").addEventListener("submit", createNetworkAttachment);
 
         document.getElementById("environment-table").addEventListener("click", handleEnvironmentAction);
         document.getElementById("ports-table").addEventListener("click", handlePortAction);
         document.getElementById("volumes-table").addEventListener("click", handleVolumeAction);
+        document.getElementById("networks-table").addEventListener("click", handleNetworkAction);
 
         loadConfiguration();
 
@@ -358,6 +361,7 @@
                 loadEnvironmentVariables(),
                 loadPortMappings(),
                 loadVolumeMounts(),
+                loadNetworkAttachments(),
             ]);
         }
 
@@ -391,6 +395,17 @@
             } catch (error) {
                 renderVolumeMounts([]);
                 showStatus(volumesStatus, error.message, "error");
+            }
+        }
+
+        async function loadNetworkAttachments() {
+            clearStatus(networksStatus);
+            try {
+                const rows = await api(serviceUrl(serviceName, "/runtime-configuration/network-attachments"));
+                renderNetworkAttachments(rows || []);
+            } catch (error) {
+                renderNetworkAttachments([]);
+                showStatus(networksStatus, error.message, "error");
             }
         }
 
@@ -489,6 +504,30 @@
             });
         }
 
+        function renderNetworkAttachments(rows) {
+            const table = document.getElementById("networks-table");
+            table.innerHTML = "";
+            if (rows.length === 0) {
+                table.innerHTML = `<tr><td colspan="2" class="empty-state">No network attachments configured.</td></tr>`;
+                return;
+            }
+
+            rows.forEach(row => {
+                const tr = document.createElement("tr");
+                tr.dataset.networkName = row.networkName;
+                tr.innerHTML = `
+                    <td></td>
+                    <td>
+                        <div class="row-actions">
+                            <button class="danger" type="button" data-action="delete-network">Delete</button>
+                        </div>
+                    </td>
+                `;
+                tr.children[0].textContent = row.networkName;
+                table.appendChild(tr);
+            });
+        }
+
         async function createEnvironmentVariable(event) {
             event.preventDefault();
             const form = event.target;
@@ -558,6 +597,29 @@
                 resetForm(form);
                 showToast("Volume mount added.");
                 await loadVolumeMounts();
+            } catch (error) {
+                showToast(error.message);
+            } finally {
+                setBusy(button, false);
+            }
+        }
+
+        async function createNetworkAttachment(event) {
+            event.preventDefault();
+            const form = event.target;
+            const button = form.querySelector("button");
+            const data = readForm(form);
+            setBusy(button, true);
+            try {
+                await api(serviceUrl(serviceName, "/runtime-configuration/network-attachments"), {
+                    method: "POST",
+                    body: {
+                        networkName: data.networkName.trim(),
+                    },
+                });
+                resetForm(form);
+                showToast("Network attachment added.");
+                await loadNetworkAttachments();
             } catch (error) {
                 showToast(error.message);
             } finally {
@@ -663,6 +725,24 @@
                     loadVolumeMounts
                 );
             }
+        }
+
+        async function handleNetworkAction(event) {
+            const button = event.target.closest("[data-action='delete-network']");
+            if (!button) {
+                return;
+            }
+
+            const tr = button.closest("tr");
+            await deleteAndReload(
+                button,
+                serviceUrl(
+                    serviceName,
+                    `/runtime-configuration/network-attachments/${pathPart(tr.dataset.networkName)}`
+                ),
+                "Network attachment deleted.",
+                loadNetworkAttachments
+            );
         }
 
         async function deleteAndReload(button, url, message, reload) {

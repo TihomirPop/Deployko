@@ -1,23 +1,30 @@
 package hr.tvz.popovic.deployko.adapter.in;
 
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
+import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
+import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachments;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceNetworkAttachmentsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
+
 import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -45,6 +52,9 @@ public class ServiceRuntimeConfigurationController {
     private final CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase;
     private final UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase;
     private final DeleteServiceVolumeMountUseCase deleteServiceVolumeMountUseCase;
+    private final GetServiceNetworkAttachmentsUseCase getServiceNetworkAttachmentsUseCase;
+    private final CreateServiceNetworkAttachmentUseCase createServiceNetworkAttachmentUseCase;
+    private final DeleteServiceNetworkAttachmentUseCase deleteServiceNetworkAttachmentUseCase;
 
     public ServiceRuntimeConfigurationController(
             GetServiceEnvironmentVariablesUseCase getServiceEnvironmentVariablesUseCase,
@@ -57,7 +67,10 @@ public class ServiceRuntimeConfigurationController {
             GetServiceVolumeMountsUseCase getServiceVolumeMountsUseCase,
             CreateServiceVolumeMountUseCase createServiceVolumeMountUseCase,
             UpdateServiceVolumeMountUseCase updateServiceVolumeMountUseCase,
-            DeleteServiceVolumeMountUseCase deleteServiceVolumeMountUseCase
+            DeleteServiceVolumeMountUseCase deleteServiceVolumeMountUseCase,
+            GetServiceNetworkAttachmentsUseCase getServiceNetworkAttachmentsUseCase,
+            CreateServiceNetworkAttachmentUseCase createServiceNetworkAttachmentUseCase,
+            DeleteServiceNetworkAttachmentUseCase deleteServiceNetworkAttachmentUseCase
     ) {
         this.getServiceEnvironmentVariablesUseCase = getServiceEnvironmentVariablesUseCase;
         this.createServiceEnvironmentVariableUseCase = createServiceEnvironmentVariableUseCase;
@@ -70,6 +83,9 @@ public class ServiceRuntimeConfigurationController {
         this.createServiceVolumeMountUseCase = createServiceVolumeMountUseCase;
         this.updateServiceVolumeMountUseCase = updateServiceVolumeMountUseCase;
         this.deleteServiceVolumeMountUseCase = deleteServiceVolumeMountUseCase;
+        this.getServiceNetworkAttachmentsUseCase = getServiceNetworkAttachmentsUseCase;
+        this.createServiceNetworkAttachmentUseCase = createServiceNetworkAttachmentUseCase;
+        this.deleteServiceNetworkAttachmentUseCase = deleteServiceNetworkAttachmentUseCase;
     }
 
     @GetMapping("/environment-variables")
@@ -379,6 +395,87 @@ public class ServiceRuntimeConfigurationController {
         }
     }
 
+    @GetMapping("/network-attachments")
+    public ResponseEntity<?> getNetworkAttachments(@PathVariable String serviceName) {
+        try {
+            GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult result =
+                    getServiceNetworkAttachmentsUseCase.getServiceNetworkAttachments(
+                            new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsCommand(
+                                    new ServiceName(serviceName)
+                            )
+                    );
+
+            return switch (result) {
+                case GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Success success ->
+                        ResponseEntity.ok(NetworkAttachmentHttpResponse.from(success.networkAttachments()));
+                case GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.NotFound _ ->
+                        ResponseEntity.notFound().build();
+                case GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/network-attachments")
+    public ResponseEntity<Void> createNetworkAttachment(
+            @PathVariable String serviceName,
+            @RequestBody CreateNetworkAttachmentHttpRequest request
+    ) {
+        try {
+            CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult result =
+                    createServiceNetworkAttachmentUseCase.createServiceNetworkAttachment(
+                            new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentCommand(
+                                    new ServiceName(serviceName),
+                                    request.toNetworkAttachment()
+                            )
+                    );
+
+            return switch (result) {
+                case CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Success _ ->
+                        ResponseEntity.status(HttpStatus.CREATED).build();
+                case CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.AlreadyExists _ ->
+                        ResponseEntity.status(HttpStatus.CONFLICT).build();
+                case CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/network-attachments/{networkName}")
+    public ResponseEntity<Void> deleteNetworkAttachment(
+            @PathVariable String serviceName,
+            @PathVariable String networkName
+    ) {
+        try {
+            DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult result =
+                    deleteServiceNetworkAttachmentUseCase.deleteServiceNetworkAttachment(
+                            new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentCommand(
+                                    new ServiceName(serviceName),
+                                    new NetworkAttachment.NetworkName(networkName)
+                            )
+                    );
+
+            return switch (result) {
+                case DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Success _ ->
+                        ResponseEntity.noContent().build();
+                case DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.NetworkAttachmentNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure _ ->
+                        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     public record CreatePortMappingHttpRequest(
             int hostPort,
             String hostProtocol,
@@ -399,6 +496,13 @@ public class ServiceRuntimeConfigurationController {
     }
 
     public record UpdateEnvironmentVariableHttpRequest(String value) {
+    }
+
+    public record CreateNetworkAttachmentHttpRequest(String networkName) {
+
+        NetworkAttachment toNetworkAttachment() {
+            return new NetworkAttachment(new NetworkAttachment.NetworkName(networkName));
+        }
     }
 
     public record CreateVolumeMountHttpRequest(
@@ -510,6 +614,20 @@ public class ServiceRuntimeConfigurationController {
                         namedVolumeMount.readOnly()
                 );
             };
+        }
+    }
+
+    public record NetworkAttachmentHttpResponse(String networkName) {
+
+        static List<NetworkAttachmentHttpResponse> from(NetworkAttachments networkAttachments) {
+            return networkAttachments
+                    .asMap()
+                    .values()
+                    .stream()
+                    .map(networkAttachment -> new NetworkAttachmentHttpResponse(
+                            networkAttachment.networkName().value()
+                    ))
+                    .toList();
         }
     }
 }

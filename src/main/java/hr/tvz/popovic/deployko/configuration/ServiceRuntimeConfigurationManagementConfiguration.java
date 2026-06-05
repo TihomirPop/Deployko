@@ -1,23 +1,29 @@
 package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeConfigurationDomainService;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceNetworkAttachmentsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.out.CreateServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNetworkAttachmentsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
@@ -42,7 +48,10 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
             FindServiceVolumeMountsPort findServiceVolumeMountsPort,
             CreateServiceVolumeMountPort createServiceVolumeMountPort,
             UpdateServiceVolumeMountPort updateServiceVolumeMountPort,
-            DeleteServiceVolumeMountPort deleteServiceVolumeMountPort
+            DeleteServiceVolumeMountPort deleteServiceVolumeMountPort,
+            FindServiceNetworkAttachmentsPort findServiceNetworkAttachmentsPort,
+            CreateServiceNetworkAttachmentPort createServiceNetworkAttachmentPort,
+            DeleteServiceNetworkAttachmentPort deleteServiceNetworkAttachmentPort
     ) {
         return new ServiceRuntimeConfigurationDomainService(
                 findServiceEnvironmentVariablesPort,
@@ -55,7 +64,10 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
                 findServiceVolumeMountsPort,
                 createServiceVolumeMountPort,
                 updateServiceVolumeMountPort,
-                deleteServiceVolumeMountPort
+                deleteServiceVolumeMountPort,
+                findServiceNetworkAttachmentsPort,
+                createServiceNetworkAttachmentPort,
+                deleteServiceNetworkAttachmentPort
         );
     }
 
@@ -137,6 +149,27 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     }
 
     @Bean
+    GetServiceNetworkAttachmentsUseCase getServiceNetworkAttachmentsUseCase(
+            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
+    ) {
+        return serviceRuntimeConfigurationDomainService;
+    }
+
+    @Bean
+    CreateServiceNetworkAttachmentUseCase createServiceNetworkAttachmentUseCase(
+            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
+    ) {
+        return serviceRuntimeConfigurationDomainService;
+    }
+
+    @Bean
+    DeleteServiceNetworkAttachmentUseCase deleteServiceNetworkAttachmentUseCase(
+            ServiceRuntimeConfigurationDomainService serviceRuntimeConfigurationDomainService
+    ) {
+        return serviceRuntimeConfigurationDomainService;
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     FindServiceEnvironmentVariablesPort findServiceEnvironmentVariablesPort() {
         return _ -> new FindServiceEnvironmentVariablesPort.FindServiceEnvironmentVariablesResult.Failure();
@@ -200,5 +233,23 @@ public class ServiceRuntimeConfigurationManagementConfiguration {
     @ConditionalOnMissingBean
     DeleteServiceVolumeMountPort deleteServiceVolumeMountPort() {
         return (_, _) -> new DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    FindServiceNetworkAttachmentsPort findServiceNetworkAttachmentsPort() {
+        return _ -> new FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    CreateServiceNetworkAttachmentPort createServiceNetworkAttachmentPort() {
+        return (_, _) -> new CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    DeleteServiceNetworkAttachmentPort deleteServiceNetworkAttachmentPort() {
+        return (_, _) -> new DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure();
     }
 }

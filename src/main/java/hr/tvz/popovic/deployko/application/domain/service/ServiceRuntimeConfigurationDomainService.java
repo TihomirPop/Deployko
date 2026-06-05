@@ -1,27 +1,34 @@
 package hr.tvz.popovic.deployko.application.domain.service;
 
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceNetworkAttachmentsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceEnvironmentVariableUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceVolumeMountUseCase;
+import hr.tvz.popovic.deployko.application.port.out.CreateServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNetworkAttachmentsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
+
 import java.util.Objects;
 
 public final class ServiceRuntimeConfigurationDomainService
@@ -29,7 +36,8 @@ public final class ServiceRuntimeConfigurationDomainService
         UpdateServiceEnvironmentVariableUseCase, DeleteServiceEnvironmentVariableUseCase,
         GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase,
         GetServiceVolumeMountsUseCase, CreateServiceVolumeMountUseCase, UpdateServiceVolumeMountUseCase,
-        DeleteServiceVolumeMountUseCase {
+        DeleteServiceVolumeMountUseCase, GetServiceNetworkAttachmentsUseCase, CreateServiceNetworkAttachmentUseCase,
+        DeleteServiceNetworkAttachmentUseCase {
 
     private final FindServiceEnvironmentVariablesPort findServiceEnvironmentVariablesPort;
     private final CreateServiceEnvironmentVariablePort createServiceEnvironmentVariablePort;
@@ -42,6 +50,9 @@ public final class ServiceRuntimeConfigurationDomainService
     private final CreateServiceVolumeMountPort createServiceVolumeMountPort;
     private final UpdateServiceVolumeMountPort updateServiceVolumeMountPort;
     private final DeleteServiceVolumeMountPort deleteServiceVolumeMountPort;
+    private final FindServiceNetworkAttachmentsPort findServiceNetworkAttachmentsPort;
+    private final CreateServiceNetworkAttachmentPort createServiceNetworkAttachmentPort;
+    private final DeleteServiceNetworkAttachmentPort deleteServiceNetworkAttachmentPort;
 
     public ServiceRuntimeConfigurationDomainService(
             FindServiceEnvironmentVariablesPort findServiceEnvironmentVariablesPort,
@@ -54,7 +65,10 @@ public final class ServiceRuntimeConfigurationDomainService
             FindServiceVolumeMountsPort findServiceVolumeMountsPort,
             CreateServiceVolumeMountPort createServiceVolumeMountPort,
             UpdateServiceVolumeMountPort updateServiceVolumeMountPort,
-            DeleteServiceVolumeMountPort deleteServiceVolumeMountPort
+            DeleteServiceVolumeMountPort deleteServiceVolumeMountPort,
+            FindServiceNetworkAttachmentsPort findServiceNetworkAttachmentsPort,
+            CreateServiceNetworkAttachmentPort createServiceNetworkAttachmentPort,
+            DeleteServiceNetworkAttachmentPort deleteServiceNetworkAttachmentPort
     ) {
         this.findServiceEnvironmentVariablesPort = Objects.requireNonNull(
                 findServiceEnvironmentVariablesPort,
@@ -99,6 +113,18 @@ public final class ServiceRuntimeConfigurationDomainService
         this.deleteServiceVolumeMountPort = Objects.requireNonNull(
                 deleteServiceVolumeMountPort,
                 "deleteServiceVolumeMountPort must not be null"
+        );
+        this.findServiceNetworkAttachmentsPort = Objects.requireNonNull(
+                findServiceNetworkAttachmentsPort,
+                "findServiceNetworkAttachmentsPort must not be null"
+        );
+        this.createServiceNetworkAttachmentPort = Objects.requireNonNull(
+                createServiceNetworkAttachmentPort,
+                "createServiceNetworkAttachmentPort must not be null"
+        );
+        this.deleteServiceNetworkAttachmentPort = Objects.requireNonNull(
+                deleteServiceNetworkAttachmentPort,
+                "deleteServiceNetworkAttachmentPort must not be null"
         );
     }
 
@@ -292,6 +318,62 @@ public final class ServiceRuntimeConfigurationDomainService
                     new DeleteServiceVolumeMountResult.VolumeMountNotFound();
             case DeleteServiceVolumeMountPort.DeleteServiceVolumeMountResult.Failure _ ->
                     new DeleteServiceVolumeMountResult.Failure();
+        };
+    }
+
+    @Override
+    public GetServiceNetworkAttachmentsResult getServiceNetworkAttachments(GetServiceNetworkAttachmentsCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        return switch (findServiceNetworkAttachmentsPort.findNetworkAttachments(command.serviceName())) {
+            case FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Found found ->
+                    new GetServiceNetworkAttachmentsResult.Success(found.networkAttachments());
+            case FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.ServiceNotFound _ ->
+                    new GetServiceNetworkAttachmentsResult.NotFound();
+            case FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Failure _ ->
+                    new GetServiceNetworkAttachmentsResult.Failure();
+        };
+    }
+
+    @Override
+    public CreateServiceNetworkAttachmentResult createServiceNetworkAttachment(
+            CreateServiceNetworkAttachmentCommand command
+    ) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        return switch (createServiceNetworkAttachmentPort.createNetworkAttachment(
+                command.serviceName(),
+                command.networkAttachment()
+        )) {
+            case CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Created _ ->
+                    new CreateServiceNetworkAttachmentResult.Success();
+            case CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.ServiceNotFound _ ->
+                    new CreateServiceNetworkAttachmentResult.ServiceNotFound();
+            case CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.AlreadyExists _ ->
+                    new CreateServiceNetworkAttachmentResult.AlreadyExists();
+            case CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Failure _ ->
+                    new CreateServiceNetworkAttachmentResult.Failure();
+        };
+    }
+
+    @Override
+    public DeleteServiceNetworkAttachmentResult deleteServiceNetworkAttachment(
+            DeleteServiceNetworkAttachmentCommand command
+    ) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        return switch (deleteServiceNetworkAttachmentPort.deleteNetworkAttachment(
+                command.serviceName(),
+                command.networkName()
+        )) {
+            case DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Deleted _ ->
+                    new DeleteServiceNetworkAttachmentResult.Success();
+            case DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.ServiceNotFound _ ->
+                    new DeleteServiceNetworkAttachmentResult.ServiceNotFound();
+            case DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.NetworkAttachmentNotFound _ ->
+                    new DeleteServiceNetworkAttachmentResult.NetworkAttachmentNotFound();
+            case DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Failure _ ->
+                    new DeleteServiceNetworkAttachmentResult.Failure();
         };
     }
 }

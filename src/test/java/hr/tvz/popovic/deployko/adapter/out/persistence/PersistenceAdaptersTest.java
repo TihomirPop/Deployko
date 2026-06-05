@@ -17,7 +17,9 @@ import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
+import hr.tvz.popovic.deployko.application.port.out.CreateServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
@@ -25,6 +27,7 @@ import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVari
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNetworkAttachmentsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
@@ -69,6 +72,7 @@ class PersistenceAdaptersTest {
     private static ServiceEnvironmentVariablePersistenceAdapter environmentVariables;
     private static ServicePortMappingPersistenceAdapter portMappings;
     private static ServiceVolumeMountPersistenceAdapter volumeMounts;
+    private static ServiceNetworkAttachmentPersistenceAdapter networkAttachments;
 
     @BeforeAll
     static void migrate_database() {
@@ -85,6 +89,7 @@ class PersistenceAdaptersTest {
         environmentVariables = new ServiceEnvironmentVariablePersistenceAdapter(dsl, transactions);
         portMappings = new ServicePortMappingPersistenceAdapter(dsl, transactions);
         volumeMounts = new ServiceVolumeMountPersistenceAdapter(dsl, transactions);
+        networkAttachments = new ServiceNetworkAttachmentPersistenceAdapter(dsl, transactions);
     }
 
     @BeforeEach
@@ -734,6 +739,134 @@ class PersistenceAdaptersTest {
         assertThat(result)
                 .isInstanceOf(DeleteServicePortMappingPort.DeleteServicePortMappingResult.PortMappingNotFound.class);
         assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isEqualTo(2);
+    }
+
+    @Test
+    void find_network_attachments_returns_attachments_when_service_exists() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult result =
+                networkAttachments.findNetworkAttachments(service.name());
+
+        assertThat(result)
+                .isInstanceOf(FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Found.class);
+        FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Found found =
+                (FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.Found) result;
+        assertThat(found.networkAttachments()).isEqualTo(service.runtimeConfiguration().networkAttachments());
+    }
+
+    @Test
+    void find_network_attachments_returns_service_not_found_when_service_does_not_exist() {
+        FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult result =
+                networkAttachments.findNetworkAttachments(new ServiceName("missing-api"));
+
+        assertThat(result)
+                .isInstanceOf(FindServiceNetworkAttachmentsPort.FindServiceNetworkAttachmentsResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void create_network_attachment_inserts_attachment_when_service_exists() {
+        Service service = new Service(
+                new ServiceName("billing-api"),
+                new ImageRepository("registry.example.com/team/billing-api"),
+                RuntimeConfiguration.empty()
+        );
+        serviceDefinitions.create(service);
+
+        CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult result =
+                networkAttachments.createNetworkAttachment(
+                        service.name(),
+                        new NetworkAttachment(new NetworkAttachment.NetworkName("deployko_backend"))
+                );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.Created.class);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_NETWORK_ATTACHMENTS)
+                        .where(SERVICE_NETWORK_ATTACHMENTS.NETWORK_NAME.eq("deployko_backend"))
+        )).isTrue();
+    }
+
+    @Test
+    void create_network_attachment_returns_service_not_found_when_service_does_not_exist() {
+        CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult result =
+                networkAttachments.createNetworkAttachment(
+                        new ServiceName("missing-api"),
+                        new NetworkAttachment(new NetworkAttachment.NetworkName("deployko_backend"))
+                );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.ServiceNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_NETWORK_ATTACHMENTS)).isZero();
+    }
+
+    @Test
+    void create_network_attachment_returns_already_exists_when_network_name_conflicts() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult result =
+                networkAttachments.createNetworkAttachment(
+                        service.name(),
+                        new NetworkAttachment(new NetworkAttachment.NetworkName("deployko_backend"))
+                );
+
+        assertThat(result)
+                .isInstanceOf(CreateServiceNetworkAttachmentPort.CreateServiceNetworkAttachmentResult.AlreadyExists.class);
+        assertThat(dsl.fetchCount(SERVICE_NETWORK_ATTACHMENTS)).isEqualTo(2);
+    }
+
+    @Test
+    void delete_network_attachment_deletes_attachment_when_service_and_attachment_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult result =
+                networkAttachments.deleteNetworkAttachment(
+                        service.name(),
+                        new NetworkAttachment.NetworkName("deployko_backend")
+                );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.Deleted.class);
+        assertThat(dsl.fetchCount(SERVICE_NETWORK_ATTACHMENTS)).isEqualTo(1);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_NETWORK_ATTACHMENTS)
+                        .where(SERVICE_NETWORK_ATTACHMENTS.NETWORK_NAME.eq("deployko_backend"))
+        )).isFalse();
+    }
+
+    @Test
+    void delete_network_attachment_returns_service_not_found_when_service_does_not_exist() {
+        DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult result =
+                networkAttachments.deleteNetworkAttachment(
+                        new ServiceName("missing-api"),
+                        new NetworkAttachment.NetworkName("deployko_backend")
+                );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void delete_network_attachment_returns_attachment_not_found_when_attachment_does_not_exist() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult result =
+                networkAttachments.deleteNetworkAttachment(
+                        service.name(),
+                        new NetworkAttachment.NetworkName("missing_network")
+                );
+
+        assertThat(result)
+                .isInstanceOf(DeleteServiceNetworkAttachmentPort.DeleteServiceNetworkAttachmentResult.NetworkAttachmentNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_NETWORK_ATTACHMENTS)).isEqualTo(2);
     }
 
     @Test

@@ -1,17 +1,22 @@
 package hr.tvz.popovic.deployko.adapter.in;
 
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
+import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
+import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachments;
 import hr.tvz.popovic.deployko.application.domain.model.Port;
 import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceEnvironmentVariableUseCase;
+import hr.tvz.popovic.deployko.application.port.in.CreateServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.CreateServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceEnvironmentVariableUseCase;
+import hr.tvz.popovic.deployko.application.port.in.DeleteServiceNetworkAttachmentUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServicePortMappingUseCase;
 import hr.tvz.popovic.deployko.application.port.in.DeleteServiceVolumeMountUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceEnvironmentVariablesUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceNetworkAttachmentsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServicePortMappingsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceVolumeMountsUseCase;
 import hr.tvz.popovic.deployko.application.port.in.UpdateServiceEnvironmentVariableUseCase;
@@ -818,9 +823,191 @@ class ServiceRuntimeConfigurationControllerTest {
                 .andExpect(status().isInternalServerError());
     }
 
+    @Test
+    void gets_network_attachments_and_returns_ok_status() throws Exception {
+        NetworkAttachments networkAttachments = NetworkAttachments.empty()
+                .add(new NetworkAttachment(new NetworkAttachment.NetworkName("deployko_backend")))
+                .add(new NetworkAttachment(new NetworkAttachment.NetworkName("observability")));
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Success(networkAttachments)
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime-configuration/network-attachments", "deployko-api"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].networkName").value("deployko_backend"))
+                .andExpect(jsonPath("$[1].networkName").value("observability"));
+    }
+
+    @Test
+    void returns_not_found_when_getting_network_attachments_for_missing_service() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.NotFound()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime-configuration/network-attachments", "missing-api"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_bad_request_when_getting_network_attachments_for_invalid_service_name() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime-configuration/network-attachments", "Deployko Api"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_internal_server_error_when_getting_network_attachments_fails_unexpectedly() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime-configuration/network-attachments", "deployko-api"))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    void creates_network_attachment_and_returns_created_status() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Success()
+        ));
+
+        mockMvc.perform(post("/services/{serviceName}/runtime-configuration/network-attachments", "deployko-api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validCreateNetworkAttachmentRequest()))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void returns_not_found_when_creating_network_attachment_for_missing_service() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.ServiceNotFound()
+        ));
+
+        mockMvc.perform(post("/services/{serviceName}/runtime-configuration/network-attachments", "missing-api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validCreateNetworkAttachmentRequest()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_conflict_when_creating_duplicate_network_attachment() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.AlreadyExists()
+        ));
+
+        mockMvc.perform(post("/services/{serviceName}/runtime-configuration/network-attachments", "deployko-api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validCreateNetworkAttachmentRequest()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void returns_bad_request_when_creating_network_attachment_with_invalid_request() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure()
+        ));
+
+        mockMvc.perform(post("/services/{serviceName}/runtime-configuration/network-attachments", "deployko-api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "networkName": "deployko/backend"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_internal_server_error_when_creating_network_attachment_fails_unexpectedly() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure()
+        ));
+
+        mockMvc.perform(post("/services/{serviceName}/runtime-configuration/network-attachments", "deployko-api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validCreateNetworkAttachmentRequest()))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    void deletes_network_attachment_and_returns_no_content() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Success()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/network-attachments/{networkName}",
+                        "deployko-api",
+                        "deployko_backend"
+                ))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void returns_not_found_when_deleting_network_attachment_for_missing_service() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.ServiceNotFound()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/network-attachments/{networkName}",
+                        "missing-api",
+                        "deployko_backend"
+                ))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_not_found_when_deleting_missing_network_attachment() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.NetworkAttachmentNotFound()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/network-attachments/{networkName}",
+                        "deployko-api",
+                        "missing_network"
+                ))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_bad_request_when_deleting_network_attachment_with_invalid_name() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/network-attachments/{networkName}",
+                        "deployko-api",
+                        "deployko backend"
+                ))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_internal_server_error_when_deleting_network_attachment_fails_unexpectedly() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeConfigurationUseCases(
+                new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
+        ));
+
+        mockMvc.perform(delete(
+                        "/services/{serviceName}/runtime-configuration/network-attachments/{networkName}",
+                        "deployko-api",
+                        "deployko_backend"
+                ))
+                .andExpect(status().isInternalServerError());
+    }
+
     private static MockMvc mockMvc(StubServiceRuntimeConfigurationUseCases useCases) {
         return MockMvcBuilders
                 .standaloneSetup(new ServiceRuntimeConfigurationController(
+                        useCases,
+                        useCases,
+                        useCases,
                         useCases,
                         useCases,
                         useCases,
@@ -885,6 +1072,14 @@ class ServiceRuntimeConfigurationControllerTest {
                 """;
     }
 
+    private static String validCreateNetworkAttachmentRequest() {
+        return """
+                {
+                  "networkName": "deployko_backend"
+                }
+                """;
+    }
+
     private record StubServiceRuntimeConfigurationUseCases(
             GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult getEnvironmentVariablesResult,
             CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult createEnvironmentVariableResult,
@@ -896,12 +1091,16 @@ class ServiceRuntimeConfigurationControllerTest {
             GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult getVolumeMountsResult,
             CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult createVolumeMountResult,
             UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult updateVolumeMountResult,
-            DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult deleteVolumeMountResult
+            DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult deleteVolumeMountResult,
+            GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult getNetworkAttachmentsResult,
+            CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult createNetworkAttachmentResult,
+            DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult deleteNetworkAttachmentResult
     ) implements GetServicePortMappingsUseCase, CreateServicePortMappingUseCase, DeleteServicePortMappingUseCase,
             GetServiceEnvironmentVariablesUseCase, CreateServiceEnvironmentVariableUseCase,
             UpdateServiceEnvironmentVariableUseCase, DeleteServiceEnvironmentVariableUseCase,
             GetServiceVolumeMountsUseCase, CreateServiceVolumeMountUseCase, UpdateServiceVolumeMountUseCase,
-            DeleteServiceVolumeMountUseCase {
+            DeleteServiceVolumeMountUseCase, GetServiceNetworkAttachmentsUseCase, CreateServiceNetworkAttachmentUseCase,
+            DeleteServiceNetworkAttachmentUseCase {
 
         private StubServiceRuntimeConfigurationUseCases(
                 GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult getEnvironmentVariablesResult
@@ -917,7 +1116,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -935,7 +1137,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -953,7 +1158,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -971,7 +1179,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -989,7 +1200,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -1008,7 +1222,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -1026,7 +1243,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -1044,7 +1264,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     getVolumeMountsResult,
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -1062,7 +1285,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     createVolumeMountResult,
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -1080,7 +1306,10 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     updateVolumeMountResult,
-                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure()
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
             );
         }
 
@@ -1098,7 +1327,73 @@ class ServiceRuntimeConfigurationControllerTest {
                     new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
                     new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
                     new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
-                    deleteVolumeMountResult
+                    deleteVolumeMountResult,
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
+            );
+        }
+
+        private StubServiceRuntimeConfigurationUseCases(
+                GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult getNetworkAttachmentsResult
+        ) {
+            this(
+                    new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
+                    new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
+                    new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
+                    new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
+                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
+                    new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
+                    new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    getNetworkAttachmentsResult,
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
+            );
+        }
+
+        private StubServiceRuntimeConfigurationUseCases(
+                CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult createNetworkAttachmentResult
+        ) {
+            this(
+                    new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
+                    new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
+                    new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
+                    new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
+                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
+                    new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
+                    new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    createNetworkAttachmentResult,
+                    new DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult.Failure()
+            );
+        }
+
+        private StubServiceRuntimeConfigurationUseCases(
+                DeleteServiceNetworkAttachmentUseCase.DeleteServiceNetworkAttachmentResult deleteNetworkAttachmentResult
+        ) {
+            this(
+                    new GetServiceEnvironmentVariablesUseCase.GetServiceEnvironmentVariablesResult.Failure(),
+                    new CreateServiceEnvironmentVariableUseCase.CreateServiceEnvironmentVariableResult.Failure(),
+                    new UpdateServiceEnvironmentVariableUseCase.UpdateServiceEnvironmentVariableResult.Failure(),
+                    new DeleteServiceEnvironmentVariableUseCase.DeleteServiceEnvironmentVariableResult.Failure(),
+                    new GetServicePortMappingsUseCase.GetServicePortMappingsResult.Failure(),
+                    new CreateServicePortMappingUseCase.CreateServicePortMappingResult.Failure(),
+                    new DeleteServicePortMappingUseCase.DeleteServicePortMappingResult.Failure(),
+                    new GetServiceVolumeMountsUseCase.GetServiceVolumeMountsResult.Failure(),
+                    new CreateServiceVolumeMountUseCase.CreateServiceVolumeMountResult.Failure(),
+                    new UpdateServiceVolumeMountUseCase.UpdateServiceVolumeMountResult.Failure(),
+                    new DeleteServiceVolumeMountUseCase.DeleteServiceVolumeMountResult.Failure(),
+                    new GetServiceNetworkAttachmentsUseCase.GetServiceNetworkAttachmentsResult.Failure(),
+                    new CreateServiceNetworkAttachmentUseCase.CreateServiceNetworkAttachmentResult.Failure(),
+                    deleteNetworkAttachmentResult
             );
         }
 
@@ -1163,6 +1458,27 @@ class ServiceRuntimeConfigurationControllerTest {
         @Override
         public DeleteServiceVolumeMountResult deleteServiceVolumeMount(DeleteServiceVolumeMountCommand command) {
             return deleteVolumeMountResult;
+        }
+
+        @Override
+        public GetServiceNetworkAttachmentsResult getServiceNetworkAttachments(
+                GetServiceNetworkAttachmentsCommand command
+        ) {
+            return getNetworkAttachmentsResult;
+        }
+
+        @Override
+        public CreateServiceNetworkAttachmentResult createServiceNetworkAttachment(
+                CreateServiceNetworkAttachmentCommand command
+        ) {
+            return createNetworkAttachmentResult;
+        }
+
+        @Override
+        public DeleteServiceNetworkAttachmentResult deleteServiceNetworkAttachment(
+                DeleteServiceNetworkAttachmentCommand command
+        ) {
+            return deleteNetworkAttachmentResult;
         }
     }
 }
