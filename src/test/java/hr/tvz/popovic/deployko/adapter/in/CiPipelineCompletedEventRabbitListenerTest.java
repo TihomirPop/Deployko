@@ -1,8 +1,8 @@
 package hr.tvz.popovic.deployko.adapter.in;
 
 import com.rabbitmq.client.Channel;
+import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
-import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.in.HandleCiPipelineCompletedEventUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CiPipelineCompletedEventRabbitListenerTest {
 
     @Test
-    void consumes_only_highest_build_number_event_per_service() throws IOException {
+    void consumes_only_highest_build_number_event_per_image_repository() throws IOException {
         StubUseCase useCase = new StubUseCase(
                 new HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.Deployed()
         );
@@ -32,17 +32,17 @@ class CiPipelineCompletedEventRabbitListenerTest {
         );
         RecordingChannel channel = RecordingChannel.create();
         Message older = message(1, """
-                {"event":"pipeline_completed","status":"success","service":"deployko","tag":"42-aaaaaaa","repo":"git","buildNumber":42}
+                {"event":"pipeline_completed","status":"success","imageRepository":"ghcr.io/deployko/api","imageVersion":"42-aaaaaaa","buildNumber":42}
                 """);
         Message newer = message(2, """
-                {"event":"pipeline_completed","status":"success","service":"deployko","tag":"43-bbbbbbb","repo":"git","buildNumber":43}
+                {"event":"pipeline_completed","status":"success","imageRepository":"ghcr.io/deployko/api","imageVersion":"43-bbbbbbb","buildNumber":43}
                 """);
 
         listener.consume(List.of(older, newer), channel.proxy());
 
         assertThat(useCase.commands).containsExactly(
                 new HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventCommand(
-                        new ServiceName("deployko"),
+                        new ImageRepository("ghcr.io/deployko/api"),
                         new ImageVersion("43-bbbbbbb"),
                         43
                 )
@@ -63,13 +63,33 @@ class CiPipelineCompletedEventRabbitListenerTest {
         RecordingChannel channel = RecordingChannel.create();
         Message invalid = message(1, "not-json");
         Message failed = message(2, """
-                {"event":"pipeline_completed","status":"failure","service":"deployko","tag":"43-bbbbbbb","repo":"git","buildNumber":43}
+                {"event":"pipeline_completed","status":"failure","imageRepository":"ghcr.io/deployko/api","imageVersion":"43-bbbbbbb","buildNumber":43}
                 """);
 
         listener.consume(List.of(invalid, failed), channel.proxy());
 
         assertThat(useCase.commands).isEmpty();
         assertThat(channel.acks).containsExactly(new Ack(1, false), new Ack(2, false));
+        assertThat(channel.nacks).isEmpty();
+    }
+
+    @Test
+    void acknowledges_no_matching_services_without_retrying() throws IOException {
+        StubUseCase useCase = new StubUseCase(
+                new HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.NoMatchingServices()
+        );
+        CiPipelineCompletedEventRabbitListener listener = new CiPipelineCompletedEventRabbitListener(
+                new ObjectMapper(),
+                useCase
+        );
+        RecordingChannel channel = RecordingChannel.create();
+        Message message = message(1, """
+                {"event":"pipeline_completed","status":"success","imageRepository":"ghcr.io/deployko/api","imageVersion":"43-bbbbbbb","buildNumber":43}
+                """);
+
+        listener.consume(List.of(message), channel.proxy());
+
+        assertThat(channel.acks).containsExactly(new Ack(1, false));
         assertThat(channel.nacks).isEmpty();
     }
 
@@ -84,7 +104,7 @@ class CiPipelineCompletedEventRabbitListenerTest {
         );
         RecordingChannel channel = RecordingChannel.create();
         Message message = message(1, """
-                {"event":"pipeline_completed","status":"success","service":"deployko","tag":"43-bbbbbbb","repo":"git","buildNumber":43}
+                {"event":"pipeline_completed","status":"success","imageRepository":"ghcr.io/deployko/api","imageVersion":"43-bbbbbbb","buildNumber":43}
                 """);
 
         listener.consume(List.of(message), channel.proxy());

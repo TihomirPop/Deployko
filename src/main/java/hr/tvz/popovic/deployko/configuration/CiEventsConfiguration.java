@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.configuration;
 import hr.tvz.popovic.deployko.application.domain.service.CiPipelineCompletedEventDomainService;
 import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.FindLastCiDeploymentPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesByImageRepositoryPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordCiDeploymentPort;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
@@ -62,6 +63,7 @@ public class CiEventsConfiguration {
 
     @Bean
     CiPipelineCompletedEventDomainService ciPipelineCompletedEventDomainService(
+            FindServiceNamesByImageRepositoryPort findServiceNamesByImageRepositoryPort,
             FindLastCiDeploymentPort findLastCiDeploymentPort,
             RecordCiDeploymentPort recordCiDeploymentPort,
             DeployServiceUseCase deployServiceUseCase,
@@ -69,6 +71,7 @@ public class CiEventsConfiguration {
             CiEventsProperties properties
     ) {
         return new CiPipelineCompletedEventDomainService(
+                findServiceNamesByImageRepositoryPort,
                 findLastCiDeploymentPort,
                 recordCiDeploymentPort,
                 deployServiceUseCase,

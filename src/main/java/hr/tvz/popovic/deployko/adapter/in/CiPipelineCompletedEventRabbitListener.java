@@ -1,8 +1,8 @@
 package hr.tvz.popovic.deployko.adapter.in;
 
 import com.rabbitmq.client.Channel;
+import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
-import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.in.HandleCiPipelineCompletedEventUseCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,37 +41,38 @@ public final class CiPipelineCompletedEventRabbitListener {
     @RabbitListener(queues = "#{ciPipelineCompletedQueue.name}", containerFactory = "ciEventsRabbitListenerContainerFactory")
     public void consume(List<Message> messages, Channel channel) throws IOException {
         List<ParsedCiEvent> validEvents = new ArrayList<>();
-        Map<ServiceName, ParsedCiEvent> newestEventsByService = new HashMap<>();
+        Map<ImageRepository, ParsedCiEvent> newestEventsByRepository = new HashMap<>();
 
         for (Message message : messages) {
             switch (parse(message)) {
                 case ParsedMessage.Valid valid -> {
                     validEvents.add(valid.event());
-                    newestEventsByService.merge(valid.event().serviceName(), valid.event(), this::newestByBuildNumber);
+                    newestEventsByRepository.merge(valid.event().imageRepository(), valid.event(), this::newestByBuildNumber);
                 }
                 case ParsedMessage.Ignored _ -> acknowledge(channel, message);
             }
         }
 
         for (ParsedCiEvent event : validEvents) {
-            if (newestEventsByService.get(event.serviceName()) != event) {
+            if (newestEventsByRepository.get(event.imageRepository()) != event) {
                 acknowledge(channel, event.message());
             }
         }
 
-        for (ParsedCiEvent event : newestEventsByService.values()) {
+        for (ParsedCiEvent event : newestEventsByRepository.values()) {
             switch (useCase.handleCiPipelineCompletedEvent(
                     new HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventCommand(
-                            event.serviceName(),
+                            event.imageRepository(),
                             event.imageVersion(),
                             event.buildNumber()
                     )
             )) {
                 case HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.Deployed _,
                      HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.SkippedRecentDeployment _,
-                     HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.ServiceNotFound _ ->
+                     HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.NoMatchingServices _ ->
                         acknowledge(channel, event.message());
-                case HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.DeploymentFailure _,
+                case HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.ServiceLookupFailure _,
+                     HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.DeploymentFailure _,
                      HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.LastDeploymentLookupFailure _,
                      HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.RecordDeploymentFailure _ ->
                         rejectForRetry(channel, event.message());
@@ -92,8 +93,8 @@ public final class CiPipelineCompletedEventRabbitListener {
 
             return new ParsedMessage.Valid(new ParsedCiEvent(
                     message,
-                    new ServiceName(body.service()),
-                    new ImageVersion(body.tag()),
+                    new ImageRepository(body.imageRepository()),
+                    new ImageVersion(body.imageVersion()),
                     buildNumber
             ));
         } catch (RuntimeException exception) {
@@ -133,13 +134,18 @@ public final class CiPipelineCompletedEventRabbitListener {
     private static final class ParsedCiEvent {
 
         private final Message message;
-        private final ServiceName serviceName;
+        private final ImageRepository imageRepository;
         private final ImageVersion imageVersion;
         private final long buildNumber;
 
-        private ParsedCiEvent(Message message, ServiceName serviceName, ImageVersion imageVersion, long buildNumber) {
+        private ParsedCiEvent(
+                Message message,
+                ImageRepository imageRepository,
+                ImageVersion imageVersion,
+                long buildNumber
+        ) {
             this.message = message;
-            this.serviceName = serviceName;
+            this.imageRepository = imageRepository;
             this.imageVersion = imageVersion;
             this.buildNumber = buildNumber;
         }
@@ -148,8 +154,8 @@ public final class CiPipelineCompletedEventRabbitListener {
             return message;
         }
 
-        private ServiceName serviceName() {
-            return serviceName;
+        private ImageRepository imageRepository() {
+            return imageRepository;
         }
 
         private ImageVersion imageVersion() {
@@ -164,9 +170,8 @@ public final class CiPipelineCompletedEventRabbitListener {
     private record CiPipelineCompletedMessage(
             String event,
             String status,
-            String service,
-            String tag,
-            String repo,
+            String imageRepository,
+            String imageVersion,
             Long buildNumber
     ) {
     }

@@ -1,4 +1,5 @@
 def appName = "deployko"
+def imageRepository = ""
 def imageTag = ""
 def imageVersion = ""
 
@@ -10,7 +11,8 @@ pipeline {
             steps {
                 script {
                     imageVersion = "${env.BUILD_NUMBER}-${env.GIT_COMMIT?.take(7) ?: 'latest'}"
-                    imageTag = "${env.REGISTRY_URL}/${appName}:${imageVersion}"
+                    imageRepository = "${env.REGISTRY_URL}/${appName}"
+                    imageTag = "${imageRepository}:${imageVersion}"
                     echo "Docker image tag: ${imageTag}"
                 }
             }
@@ -55,9 +57,8 @@ pipeline {
                         data: groovy.json.JsonOutput.toJson([
                             event: 'pipeline_completed',
                             status: 'success',
-                            service: appName,
-                            tag: imageVersion,
-                            repo: env.GIT_URL,
+                            imageRepository: imageRepository,
+                            imageVersion: imageVersion,
                             buildNumber: env.BUILD_NUMBER as Integer
                         ]),
                         conversion: false,

@@ -28,6 +28,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePo
 import hr.tvz.popovic.deployko.application.port.out.FindLastCiDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesByImageRepositoryPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceNetworkAttachmentsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
@@ -192,6 +193,47 @@ class PersistenceAdaptersTest {
                 serviceDefinitions.findByName(new ServiceName("missing-api"));
 
         assertThat(result).isInstanceOf(FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound.class);
+    }
+
+    @Test
+    void find_service_names_by_image_repository_returns_matching_services_in_name_order() {
+        ImageRepository sharedRepository = new ImageRepository("registry.example.com/team/billing-api");
+        Service workerService = serviceWithRuntimeConfiguration(new ServiceName("billing-worker"));
+        Service apiService = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        Service otherService = new Service(
+                new ServiceName("other-api"),
+                new ImageRepository("registry.example.com/team/other-api"),
+                RuntimeConfiguration.empty()
+        );
+        serviceDefinitions.create(workerService);
+        serviceDefinitions.create(otherService);
+        serviceDefinitions.create(apiService);
+
+        FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult result =
+                serviceDefinitions.findServiceNamesByImageRepository(sharedRepository);
+
+        assertThat(result)
+                .isInstanceOf(FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult.Found.class);
+        FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult.Found found =
+                (FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult.Found) result;
+        assertThat(found.serviceNames()).containsExactly(
+                new ServiceName("billing-api"),
+                new ServiceName("billing-worker")
+        );
+    }
+
+    @Test
+    void find_service_names_by_image_repository_returns_empty_list_when_repository_has_no_services() {
+        FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult result =
+                serviceDefinitions.findServiceNamesByImageRepository(
+                        new ImageRepository("registry.example.com/team/missing-api")
+                );
+
+        assertThat(result)
+                .isInstanceOf(FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult.Found.class);
+        FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult.Found found =
+                (FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult.Found) result;
+        assertThat(found.serviceNames()).isEmpty();
     }
 
     @Test

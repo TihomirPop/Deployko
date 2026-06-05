@@ -8,11 +8,14 @@ import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesByImageRepositoryPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.jooq.DSLContext;
 import org.jooq.exception.DataAccessException;
 import org.slf4j.Logger;
@@ -24,7 +27,8 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class ServiceDefinitionPersistenceAdapter
-        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort, FindServiceSummaryCandidatesPort {
+        implements CreateServicePort, DeleteServiceByNamePort, FindServiceDefinitionPort,
+        FindServiceNamesByImageRepositoryPort, FindServiceSummaryCandidatesPort {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceDefinitionPersistenceAdapter.class);
 
@@ -81,6 +85,28 @@ public final class ServiceDefinitionPersistenceAdapter
         } catch (DataAccessException exception) {
             log.error("error while finding service definition", exception);
             return new FindServiceDefinitionResult.Failure();
+        }
+    }
+
+    @Override
+    public FindServiceNamesByImageRepositoryResult findServiceNamesByImageRepository(ImageRepository imageRepository) {
+        Objects.requireNonNull(imageRepository, "imageRepository must not be null");
+
+        try {
+            List<ServiceName> serviceNames = dsl
+                    .select(SERVICES.NAME)
+                    .from(SERVICES)
+                    .where(SERVICES.IMAGE_REPOSITORY.eq(imageRepository.value()))
+                    .orderBy(SERVICES.NAME)
+                    .fetch(SERVICES.NAME)
+                    .stream()
+                    .map(ServiceName::new)
+                    .toList();
+
+            return new FindServiceNamesByImageRepositoryResult.Found(serviceNames);
+        } catch (DataAccessException exception) {
+            log.error("error while finding service names for image repository {}", imageRepository.value(), exception);
+            return new FindServiceNamesByImageRepositoryResult.Failure();
         }
     }
 

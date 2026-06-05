@@ -1,10 +1,12 @@
 package hr.tvz.popovic.deployko.application.domain.service;
 
+import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.HandleCiPipelineCompletedEventUseCase;
 import hr.tvz.popovic.deployko.application.port.out.FindLastCiDeploymentPort;
+import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesByImageRepositoryPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordCiDeploymentPort;
 import org.junit.jupiter.api.Test;
 
@@ -15,20 +17,23 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CiPipelineCompletedEventDomainServiceTest {
 
-    private static final ServiceName SERVICE_NAME = new ServiceName("deployko");
+    private static final ImageRepository IMAGE_REPOSITORY = new ImageRepository("ghcr.io/deployko/api");
     private static final ImageVersion IMAGE_VERSION = new ImageVersion("43-360b816");
+    private static final ServiceName API_SERVICE_NAME = new ServiceName("deployko-api");
+    private static final ServiceName WORKER_SERVICE_NAME = new ServiceName("deployko-worker");
     private static final Instant NOW = Instant.parse("2026-06-05T12:00:00Z");
     private static final OffsetDateTime NOW_OFFSET = OffsetDateTime.ofInstant(NOW, ZoneOffset.UTC);
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final Duration THROTTLE_WINDOW = Duration.ofMinutes(5);
 
     @Test
-    void deploys_and_records_when_service_has_no_previous_ci_deployment() {
+    void deploys_and_records_all_services_matching_image_repository() {
         FakeDeployServiceUseCase deployServiceUseCase = new FakeDeployServiceUseCase(
                 new DeployServiceUseCase.DeployServiceResult.Success()
         );
@@ -36,6 +41,7 @@ class CiPipelineCompletedEventDomainServiceTest {
                 new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()
         );
         CiPipelineCompletedEventDomainService service = service(
+                services(API_SERVICE_NAME, WORKER_SERVICE_NAME),
                 _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.NotDeployed(),
                 recordCiDeploymentPort,
                 deployServiceUseCase
@@ -46,21 +52,33 @@ class CiPipelineCompletedEventDomainServiceTest {
 
         assertThat(result)
                 .isInstanceOf(HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.Deployed.class);
-        assertThat(deployServiceUseCase.commands).containsExactly(new DeployServiceUseCase.DeployServiceCommand(
-                SERVICE_NAME,
-                IMAGE_VERSION
-        ));
-        assertThat(recordCiDeploymentPort.records).containsExactly(new CiDeploymentRecord(SERVICE_NAME, NOW_OFFSET));
+        assertThat(deployServiceUseCase.commands).containsExactly(
+                new DeployServiceUseCase.DeployServiceCommand(API_SERVICE_NAME, IMAGE_VERSION),
+                new DeployServiceUseCase.DeployServiceCommand(WORKER_SERVICE_NAME, IMAGE_VERSION)
+        );
+        assertThat(recordCiDeploymentPort.records).containsExactly(
+                new CiDeploymentRecord(API_SERVICE_NAME, NOW_OFFSET),
+                new CiDeploymentRecord(WORKER_SERVICE_NAME, NOW_OFFSET)
+        );
     }
 
     @Test
-    void deploys_when_previous_ci_deployment_is_older_than_throttle_window() {
+    void deploys_only_services_outside_throttle_window() {
         FakeDeployServiceUseCase deployServiceUseCase = new FakeDeployServiceUseCase(
                 new DeployServiceUseCase.DeployServiceResult.Success()
         );
+        FakeRecordCiDeploymentPort recordCiDeploymentPort = new FakeRecordCiDeploymentPort(
+                new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()
+        );
         CiPipelineCompletedEventDomainService service = service(
-                _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.Found(NOW_OFFSET.minusMinutes(6)),
-                new FakeRecordCiDeploymentPort(new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()),
+                services(API_SERVICE_NAME, WORKER_SERVICE_NAME),
+                serviceName -> {
+                    if (serviceName.equals(API_SERVICE_NAME)) {
+                        return new FindLastCiDeploymentPort.FindLastCiDeploymentResult.Found(NOW_OFFSET.minusMinutes(4));
+                    }
+                    return new FindLastCiDeploymentPort.FindLastCiDeploymentResult.Found(NOW_OFFSET.minusMinutes(6));
+                },
+                recordCiDeploymentPort,
                 deployServiceUseCase
         );
 
@@ -69,15 +87,21 @@ class CiPipelineCompletedEventDomainServiceTest {
 
         assertThat(result)
                 .isInstanceOf(HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.Deployed.class);
-        assertThat(deployServiceUseCase.commands).hasSize(1);
+        assertThat(deployServiceUseCase.commands).containsExactly(
+                new DeployServiceUseCase.DeployServiceCommand(WORKER_SERVICE_NAME, IMAGE_VERSION)
+        );
+        assertThat(recordCiDeploymentPort.records).containsExactly(
+                new CiDeploymentRecord(WORKER_SERVICE_NAME, NOW_OFFSET)
+        );
     }
 
     @Test
-    void skips_when_previous_ci_deployment_is_inside_throttle_window() {
+    void skips_when_all_matching_services_are_inside_throttle_window() {
         FakeDeployServiceUseCase deployServiceUseCase = new FakeDeployServiceUseCase(
                 new DeployServiceUseCase.DeployServiceResult.Success()
         );
         CiPipelineCompletedEventDomainService service = service(
+                services(API_SERVICE_NAME, WORKER_SERVICE_NAME),
                 _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.Found(NOW_OFFSET.minusMinutes(4)),
                 new FakeRecordCiDeploymentPort(new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()),
                 deployServiceUseCase
@@ -92,9 +116,10 @@ class CiPipelineCompletedEventDomainServiceTest {
     }
 
     @Test
-    void returns_service_not_found_when_last_deployment_lookup_reports_missing_service() {
+    void returns_no_matching_services_when_repository_has_no_services() {
         CiPipelineCompletedEventDomainService service = service(
-                _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.ServiceNotFound(),
+                services(),
+                _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.NotDeployed(),
                 new FakeRecordCiDeploymentPort(new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()),
                 new FakeDeployServiceUseCase(new DeployServiceUseCase.DeployServiceResult.Success())
         );
@@ -103,12 +128,29 @@ class CiPipelineCompletedEventDomainServiceTest {
                 service.handleCiPipelineCompletedEvent(command());
 
         assertThat(result)
-                .isInstanceOf(HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.ServiceNotFound.class);
+                .isInstanceOf(HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.NoMatchingServices.class);
     }
 
     @Test
-    void returns_lookup_failure_when_last_deployment_lookup_fails() {
+    void returns_service_lookup_failure_when_repository_lookup_fails() {
         CiPipelineCompletedEventDomainService service = service(
+                _ -> new FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult.Failure(),
+                _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.NotDeployed(),
+                new FakeRecordCiDeploymentPort(new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()),
+                new FakeDeployServiceUseCase(new DeployServiceUseCase.DeployServiceResult.Success())
+        );
+
+        HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult result =
+                service.handleCiPipelineCompletedEvent(command());
+
+        assertThat(result)
+                .isInstanceOf(HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.ServiceLookupFailure.class);
+    }
+
+    @Test
+    void returns_lookup_failure_when_last_deployment_lookup_fails_for_any_matching_service() {
+        CiPipelineCompletedEventDomainService service = service(
+                services(API_SERVICE_NAME),
                 _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.Failure(),
                 new FakeRecordCiDeploymentPort(new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()),
                 new FakeDeployServiceUseCase(new DeployServiceUseCase.DeployServiceResult.Success())
@@ -122,11 +164,12 @@ class CiPipelineCompletedEventDomainServiceTest {
     }
 
     @Test
-    void returns_deployment_failure_when_deploy_use_case_fails() {
+    void returns_deployment_failure_when_deploy_use_case_fails_for_any_matching_service() {
         FakeRecordCiDeploymentPort recordCiDeploymentPort = new FakeRecordCiDeploymentPort(
                 new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()
         );
         CiPipelineCompletedEventDomainService service = service(
+                services(API_SERVICE_NAME),
                 _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.NotDeployed(),
                 recordCiDeploymentPort,
                 new FakeDeployServiceUseCase(new DeployServiceUseCase.DeployServiceResult.DockerFailure())
@@ -141,8 +184,39 @@ class CiPipelineCompletedEventDomainServiceTest {
     }
 
     @Test
+    void attempts_remaining_services_when_one_matching_service_fails() {
+        FakeRecordCiDeploymentPort recordCiDeploymentPort = new FakeRecordCiDeploymentPort(
+                new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()
+        );
+        FakeDeployServiceUseCase deployServiceUseCase = new FakeDeployServiceUseCase(command -> {
+            if (command.serviceName().equals(API_SERVICE_NAME)) {
+                return new DeployServiceUseCase.DeployServiceResult.DockerFailure();
+            }
+            return new DeployServiceUseCase.DeployServiceResult.Success();
+        });
+        CiPipelineCompletedEventDomainService service = service(
+                services(API_SERVICE_NAME, WORKER_SERVICE_NAME),
+                _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.NotDeployed(),
+                recordCiDeploymentPort,
+                deployServiceUseCase
+        );
+
+        HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult result =
+                service.handleCiPipelineCompletedEvent(command());
+
+        assertThat(result)
+                .isInstanceOf(HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.DeploymentFailure.class);
+        assertThat(deployServiceUseCase.commands).containsExactly(
+                new DeployServiceUseCase.DeployServiceCommand(API_SERVICE_NAME, IMAGE_VERSION),
+                new DeployServiceUseCase.DeployServiceCommand(WORKER_SERVICE_NAME, IMAGE_VERSION)
+        );
+        assertThat(recordCiDeploymentPort.records).containsExactly(new CiDeploymentRecord(WORKER_SERVICE_NAME, NOW_OFFSET));
+    }
+
+    @Test
     void returns_record_failure_when_successful_deployment_cannot_be_recorded() {
         CiPipelineCompletedEventDomainService service = service(
+                services(API_SERVICE_NAME),
                 _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.NotDeployed(),
                 new FakeRecordCiDeploymentPort(new RecordCiDeploymentPort.RecordCiDeploymentResult.Failure()),
                 new FakeDeployServiceUseCase(new DeployServiceUseCase.DeployServiceResult.Success())
@@ -155,12 +229,20 @@ class CiPipelineCompletedEventDomainServiceTest {
                 .isInstanceOf(HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.RecordDeploymentFailure.class);
     }
 
+    private static FindServiceNamesByImageRepositoryPort services(ServiceName... serviceNames) {
+        return _ -> new FindServiceNamesByImageRepositoryPort.FindServiceNamesByImageRepositoryResult.Found(
+                List.of(serviceNames)
+        );
+    }
+
     private static CiPipelineCompletedEventDomainService service(
+            FindServiceNamesByImageRepositoryPort findServiceNamesByImageRepositoryPort,
             FindLastCiDeploymentPort findLastCiDeploymentPort,
             FakeRecordCiDeploymentPort recordCiDeploymentPort,
             FakeDeployServiceUseCase deployServiceUseCase
     ) {
         return new CiPipelineCompletedEventDomainService(
+                findServiceNamesByImageRepositoryPort,
                 findLastCiDeploymentPort,
                 recordCiDeploymentPort,
                 deployServiceUseCase,
@@ -171,7 +253,7 @@ class CiPipelineCompletedEventDomainServiceTest {
 
     private static HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventCommand command() {
         return new HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventCommand(
-                SERVICE_NAME,
+                IMAGE_REPOSITORY,
                 IMAGE_VERSION,
                 43
         );
@@ -182,17 +264,21 @@ class CiPipelineCompletedEventDomainServiceTest {
 
     private static final class FakeDeployServiceUseCase implements DeployServiceUseCase {
 
-        private final DeployServiceResult result;
+        private final Function<DeployServiceCommand, DeployServiceResult> results;
         private final List<DeployServiceCommand> commands = new ArrayList<>();
 
         private FakeDeployServiceUseCase(DeployServiceResult result) {
-            this.result = result;
+            this(_ -> result);
+        }
+
+        private FakeDeployServiceUseCase(Function<DeployServiceCommand, DeployServiceResult> results) {
+            this.results = results;
         }
 
         @Override
         public DeployServiceResult deployService(DeployServiceCommand command) {
             commands.add(command);
-            return result;
+            return results.apply(command);
         }
     }
 
