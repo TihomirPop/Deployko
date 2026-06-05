@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import java.time.OffsetDateTime;
@@ -19,7 +20,7 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class DesiredDeploymentPersistenceAdapter
-        implements UpsertDesiredDeploymentPort, UpdateDesiredDeploymentStatePort {
+        implements UpsertDesiredDeploymentPort, UpdateDesiredDeploymentStatePort, FindDesiredDeploymentStatePort {
 
     private static final Logger log = LoggerFactory.getLogger(DesiredDeploymentPersistenceAdapter.class);
 
@@ -85,6 +86,34 @@ public final class DesiredDeploymentPersistenceAdapter
         } catch (DataAccessException exception) {
             log.error("error while updating desired deployment state", exception);
             return new UpdateDesiredDeploymentStateResult.Failure();
+        }
+    }
+
+    @Override
+    public FindDesiredDeploymentStateResult findDesiredState(ServiceName serviceName) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+
+        try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new FindDesiredDeploymentStateResult.ServiceNotFound();
+            }
+
+            String desiredState = dsl
+                    .select(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE)
+                    .from(SERVICE_DESIRED_DEPLOYMENTS)
+                    .where(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID.eq(serviceId.get()))
+                    .fetchOptional(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE)
+                    .orElse(null);
+
+            if (desiredState == null) {
+                return new FindDesiredDeploymentStateResult.NotDeployed();
+            }
+
+            return new FindDesiredDeploymentStateResult.Found(DesiredDeploymentState.valueOf(desiredState));
+        } catch (DataAccessException | IllegalArgumentException exception) {
+            log.error("error while finding desired deployment state", exception);
+            return new FindDesiredDeploymentStateResult.Failure();
         }
     }
 

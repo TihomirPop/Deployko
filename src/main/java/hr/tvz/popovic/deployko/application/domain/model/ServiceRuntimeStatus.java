@@ -1,0 +1,14 @@
+package hr.tvz.popovic.deployko.application.domain.model;
+
+public enum ServiceRuntimeStatus {
+    RUNNING,
+    STOPPED,
+    NOT_DEPLOYED,
+    EXPECTED_RUNNING_BUT_STOPPED,
+    EXPECTED_RUNNING_BUT_MISSING,
+    EXPECTED_STOPPED_BUT_RUNNING,
+    EXPECTED_STOPPED_BUT_MISSING,
+    ORPHANED_RUNNING,
+    ORPHANED_STOPPED,
+    DUPLICATE_MANAGED_CONTAINERS
+}

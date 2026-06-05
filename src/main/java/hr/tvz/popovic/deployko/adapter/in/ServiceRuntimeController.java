@@ -3,10 +3,12 @@ package hr.tvz.popovic.deployko.adapter.in;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,15 +22,18 @@ public class ServiceRuntimeController {
     private final DeployServiceUseCase deployServiceUseCase;
     private final StartServiceUseCase startServiceUseCase;
     private final StopServiceUseCase stopServiceUseCase;
+    private final GetServiceRuntimeStatusUseCase getServiceRuntimeStatusUseCase;
 
     public ServiceRuntimeController(
             DeployServiceUseCase deployServiceUseCase,
             StartServiceUseCase startServiceUseCase,
-            StopServiceUseCase stopServiceUseCase
+            StopServiceUseCase stopServiceUseCase,
+            GetServiceRuntimeStatusUseCase getServiceRuntimeStatusUseCase
     ) {
         this.deployServiceUseCase = deployServiceUseCase;
         this.startServiceUseCase = startServiceUseCase;
         this.stopServiceUseCase = stopServiceUseCase;
+        this.getServiceRuntimeStatusUseCase = getServiceRuntimeStatusUseCase;
     }
 
     @PostMapping("/deploy")
@@ -101,6 +106,34 @@ public class ServiceRuntimeController {
         }
     }
 
+    @GetMapping("/status")
+    public ResponseEntity<ServiceRuntimeStatusHttpResponse> getServiceRuntimeStatus(@PathVariable String serviceName) {
+        try {
+            GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult result =
+                    getServiceRuntimeStatusUseCase.getServiceRuntimeStatus(
+                            new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusCommand(
+                                    new ServiceName(serviceName)
+                            )
+                    );
+
+            return switch (result) {
+                case GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.Success success ->
+                        ResponseEntity.ok(new ServiceRuntimeStatusHttpResponse(success.status().name()));
+                case GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.ServiceNotFound _ ->
+                        ResponseEntity.notFound().build();
+                case GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.DesiredStateFailure _,
+                     GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.DockerFailure _ -> ResponseEntity
+                        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     public record DeployServiceHttpRequest(String imageVersion) {
+    }
+
+    public record ServiceRuntimeStatusHttpResponse(String status) {
     }
 }

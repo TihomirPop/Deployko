@@ -22,6 +22,7 @@ import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
+import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesPort;
@@ -834,6 +835,41 @@ class PersistenceAdaptersTest {
                 .isInstanceOf(
                         UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.ServiceNotFound.class
                 );
+    }
+
+    @Test
+    void find_desired_state_returns_existing_desired_deployment_state() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        desiredDeployments.upsert(desiredDeployment(service));
+
+        FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult result =
+                desiredDeployments.findDesiredState(service.name());
+
+        assertThat(result).isEqualTo(new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Found(
+                DesiredDeploymentState.RUNNING
+        ));
+    }
+
+    @Test
+    void find_desired_state_returns_not_deployed_when_service_has_no_desired_deployment() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult result =
+                desiredDeployments.findDesiredState(service.name());
+
+        assertThat(result)
+                .isInstanceOf(FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.NotDeployed.class);
+    }
+
+    @Test
+    void find_desired_state_returns_service_not_found_when_service_does_not_exist() {
+        FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult result =
+                desiredDeployments.findDesiredState(new ServiceName("missing-api"));
+
+        assertThat(result)
+                .isInstanceOf(FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.ServiceNotFound.class);
     }
 
     @Test

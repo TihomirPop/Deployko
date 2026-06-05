@@ -1,6 +1,6 @@
 ### Variables
 @host = http://localhost:8080
-@serviceName = deployko-nginx
+@serviceName = nginx
 @imageRepository = docker.io/library/nginx
 @imageVersion = latest
 @hostPort = 8081
@@ -324,3 +324,12 @@ POST {{host}}/services/missing-service/runtime/stop
 
 ### Stop invalid
 POST {{host}}/services/Deployko Api/runtime/stop
+
+### Runtime status
+GET {{host}}/services/{{serviceName}}/runtime/status
+
+### Runtime status missing
+GET {{host}}/services/missing-service/runtime/status
+
+### Runtime status invalid
+GET {{host}}/services/Deployko Api/runtime/status

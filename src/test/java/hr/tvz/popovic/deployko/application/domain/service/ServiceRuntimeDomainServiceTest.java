@@ -1,5 +1,6 @@
 package hr.tvz.popovic.deployko.application.domain.service;
 
+import hr.tvz.popovic.deployko.application.domain.model.ActualDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
@@ -12,12 +13,16 @@ import hr.tvz.popovic.deployko.application.domain.model.PortMappings;
 import hr.tvz.popovic.deployko.application.domain.model.RuntimeConfiguration;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.domain.model.ServiceRuntimeStatus;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
 import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
+import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
@@ -47,9 +52,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 upsertDesiredDeploymentPort,
                 successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
                 deployContainerPort,
                 successfulStartContainerPort(),
-                successfulStopContainerPort()
+                successfulStopContainerPort(),
+                successfulFindActualDeploymentStatePort()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -75,9 +82,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
                 _ -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
-                successfulStopContainerPort()
+                successfulStopContainerPort(),
+                successfulFindActualDeploymentStatePort()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -93,9 +102,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Failure(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
                 _ -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
-                successfulStopContainerPort()
+                successfulStopContainerPort(),
+                successfulFindActualDeploymentStatePort()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -111,9 +122,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.ServiceNotFound(),
                 successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
                 _ -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
-                successfulStopContainerPort()
+                successfulStopContainerPort(),
+                successfulFindActualDeploymentStatePort()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -129,9 +142,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Failure(),
                 successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
                 _ -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
-                successfulStopContainerPort()
+                successfulStopContainerPort(),
+                successfulFindActualDeploymentStatePort()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -147,9 +162,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
                 _ -> new DeployContainerPort.DeployContainerResult.Failure(),
                 successfulStartContainerPort(),
-                successfulStopContainerPort()
+                successfulStopContainerPort(),
+                successfulFindActualDeploymentStatePort()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -165,9 +182,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
                 _ -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
-                successfulStopContainerPort()
+                successfulStopContainerPort(),
+                successfulFindActualDeploymentStatePort()
         );
 
         StartServiceUseCase.StartServiceResult result = service.startService(
@@ -183,9 +202,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
                 _ -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
-                successfulStopContainerPort()
+                successfulStopContainerPort(),
+                successfulFindActualDeploymentStatePort()
         );
 
         StopServiceUseCase.StopServiceResult result = service.stopService(
@@ -193,6 +214,146 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(StopServiceUseCase.StopServiceResult.Success.class);
+    }
+
+    @Test
+    void returns_status_for_each_desired_and_actual_state_combination() {
+        List<StatusCase> statusCases = List.of(
+                new StatusCase(DesiredDeploymentState.RUNNING, ActualDeploymentState.RUNNING, ServiceRuntimeStatus.RUNNING),
+                new StatusCase(
+                        DesiredDeploymentState.RUNNING,
+                        ActualDeploymentState.STOPPED,
+                        ServiceRuntimeStatus.EXPECTED_RUNNING_BUT_STOPPED
+                ),
+                new StatusCase(
+                        DesiredDeploymentState.RUNNING,
+                        ActualDeploymentState.MISSING,
+                        ServiceRuntimeStatus.EXPECTED_RUNNING_BUT_MISSING
+                ),
+                new StatusCase(
+                        DesiredDeploymentState.STOPPED,
+                        ActualDeploymentState.RUNNING,
+                        ServiceRuntimeStatus.EXPECTED_STOPPED_BUT_RUNNING
+                ),
+                new StatusCase(DesiredDeploymentState.STOPPED, ActualDeploymentState.STOPPED, ServiceRuntimeStatus.STOPPED),
+                new StatusCase(
+                        DesiredDeploymentState.STOPPED,
+                        ActualDeploymentState.MISSING,
+                        ServiceRuntimeStatus.EXPECTED_STOPPED_BUT_MISSING
+                )
+        );
+
+        for (StatusCase statusCase : statusCases) {
+            ServiceRuntimeDomainService service = serviceWithStatusPorts(
+                    _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Found(
+                            statusCase.desiredState()
+                    ),
+                    _ -> new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                            statusCase.actualState()
+                    )
+            );
+
+            GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult result = service.getServiceRuntimeStatus(
+                    new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusCommand(SERVICE.name())
+            );
+
+            assertThat(result)
+                    .as("desired %s actual %s", statusCase.desiredState(), statusCase.actualState())
+                    .isEqualTo(new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.Success(
+                            statusCase.expectedStatus()
+                    ));
+        }
+    }
+
+    @Test
+    void returns_status_for_services_without_desired_deployment() {
+        List<UndeployedStatusCase> statusCases = List.of(
+                new UndeployedStatusCase(ActualDeploymentState.RUNNING, ServiceRuntimeStatus.ORPHANED_RUNNING),
+                new UndeployedStatusCase(ActualDeploymentState.STOPPED, ServiceRuntimeStatus.ORPHANED_STOPPED),
+                new UndeployedStatusCase(ActualDeploymentState.MISSING, ServiceRuntimeStatus.NOT_DEPLOYED)
+        );
+
+        for (UndeployedStatusCase statusCase : statusCases) {
+            ServiceRuntimeDomainService service = serviceWithStatusPorts(
+                    _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.NotDeployed(),
+                    _ -> new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                            statusCase.actualState()
+                    )
+            );
+
+            GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult result = service.getServiceRuntimeStatus(
+                    new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusCommand(SERVICE.name())
+            );
+
+            assertThat(result)
+                    .as("actual %s", statusCase.actualState())
+                    .isEqualTo(new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.Success(
+                            statusCase.expectedStatus()
+                    ));
+        }
+    }
+
+    @Test
+    void returns_duplicate_managed_containers_status_when_docker_reports_duplicates() {
+        ServiceRuntimeDomainService service = serviceWithStatusPorts(
+                _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Found(
+                        DesiredDeploymentState.RUNNING
+                ),
+                _ -> new FindActualDeploymentStatePort.FindActualDeploymentStateResult.DuplicateManagedContainers()
+        );
+
+        GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult result = service.getServiceRuntimeStatus(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusCommand(SERVICE.name())
+        );
+
+        assertThat(result).isEqualTo(new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.Success(
+                ServiceRuntimeStatus.DUPLICATE_MANAGED_CONTAINERS
+        ));
+    }
+
+    @Test
+    void returns_service_not_found_when_status_desired_state_lookup_reports_missing_service() {
+        ServiceRuntimeDomainService service = serviceWithStatusPorts(
+                _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.ServiceNotFound(),
+                successfulFindActualDeploymentStatePort()
+        );
+
+        GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult result = service.getServiceRuntimeStatus(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusCommand(SERVICE.name())
+        );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void returns_desired_state_failure_when_status_desired_state_lookup_fails() {
+        ServiceRuntimeDomainService service = serviceWithStatusPorts(
+                _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Failure(),
+                successfulFindActualDeploymentStatePort()
+        );
+
+        GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult result = service.getServiceRuntimeStatus(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusCommand(SERVICE.name())
+        );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.DesiredStateFailure.class);
+    }
+
+    @Test
+    void returns_docker_failure_when_status_actual_state_lookup_fails() {
+        ServiceRuntimeDomainService service = serviceWithStatusPorts(
+                successfulFindDesiredDeploymentStatePort(),
+                _ -> new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Failure()
+        );
+
+        GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult result = service.getServiceRuntimeStatus(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusCommand(SERVICE.name())
+        );
+
+        assertThat(result)
+                .isInstanceOf(GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.DockerFailure.class);
     }
 
     private static Service service() {
@@ -223,12 +384,53 @@ class ServiceRuntimeDomainServiceTest {
         return (_, _) -> new UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.Success();
     }
 
+    private static FindDesiredDeploymentStatePort successfulFindDesiredDeploymentStatePort() {
+        return _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Found(
+                DesiredDeploymentState.RUNNING
+        );
+    }
+
     private static StartContainerPort successfulStartContainerPort() {
         return _ -> new StartContainerPort.StartContainerResult.Success();
     }
 
     private static StopContainerPort successfulStopContainerPort() {
         return _ -> new StopContainerPort.StopContainerResult.Success();
+    }
+
+    private static FindActualDeploymentStatePort successfulFindActualDeploymentStatePort() {
+        return _ -> new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                ActualDeploymentState.RUNNING
+        );
+    }
+
+    private static ServiceRuntimeDomainService serviceWithStatusPorts(
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort
+    ) {
+        return new ServiceRuntimeDomainService(
+                _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
+                _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
+                successfulUpdateStatePort(),
+                findDesiredDeploymentStatePort,
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort(),
+                findActualDeploymentStatePort
+        );
+    }
+
+    private record StatusCase(
+            DesiredDeploymentState desiredState,
+            ActualDeploymentState actualState,
+            ServiceRuntimeStatus expectedStatus
+    ) {
+    }
+
+    private record UndeployedStatusCase(
+            ActualDeploymentState actualState,
+            ServiceRuntimeStatus expectedStatus
+    ) {
     }
 
     private static final class FakeUpsertDesiredDeploymentPort implements UpsertDesiredDeploymentPort {

@@ -1,12 +1,16 @@
 package hr.tvz.popovic.deployko.adapter.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.domain.model.ServiceRuntimeStatus;
 import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
 import org.junit.jupiter.api.Test;
@@ -118,18 +122,84 @@ class ServiceRuntimeControllerTest {
                 .andExpect(status().isInternalServerError());
     }
 
+    @Test
+    void returns_runtime_status() throws Exception {
+        StubServiceRuntimeUseCases useCases = new StubServiceRuntimeUseCases(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.Success(ServiceRuntimeStatus.RUNNING)
+        );
+        MockMvc mockMvc = mockMvc(useCases);
+
+        mockMvc.perform(get("/services/{serviceName}/runtime/status", "deployko-api"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RUNNING"));
+
+        assertThat(useCases.getServiceRuntimeStatusCommand)
+                .isEqualTo(new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusCommand(
+                        new ServiceName("deployko-api")
+                ));
+    }
+
+    @Test
+    void returns_not_found_when_runtime_status_service_is_missing() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeUseCases(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.ServiceNotFound()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime/status", "missing-service"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returns_bad_request_when_runtime_status_service_name_is_invalid() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeUseCases(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.Success(ServiceRuntimeStatus.RUNNING)
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime/status", "Deployko Api"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returns_internal_server_error_when_runtime_status_desired_state_lookup_fails() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeUseCases(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.DesiredStateFailure()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime/status", "deployko-api"))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    void returns_internal_server_error_when_runtime_status_docker_lookup_fails() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeUseCases(
+                new GetServiceRuntimeStatusUseCase.GetServiceRuntimeStatusResult.DockerFailure()
+        ));
+
+        mockMvc.perform(get("/services/{serviceName}/runtime/status", "deployko-api"))
+                .andExpect(status().isInternalServerError());
+    }
+
     private static MockMvc mockMvc(StubServiceRuntimeUseCases useCases) {
-        return MockMvcBuilders.standaloneSetup(new ServiceRuntimeController(useCases, useCases, useCases)).build();
+        return MockMvcBuilders.standaloneSetup(new ServiceRuntimeController(useCases, useCases, useCases, useCases))
+                .build();
     }
 
     private static final class StubServiceRuntimeUseCases
-            implements DeployServiceUseCase, StartServiceUseCase, StopServiceUseCase {
+            implements DeployServiceUseCase, StartServiceUseCase, StopServiceUseCase, GetServiceRuntimeStatusUseCase {
 
         private final DeployServiceResult deployServiceResult;
+        private final GetServiceRuntimeStatusResult getServiceRuntimeStatusResult;
         private DeployServiceCommand deployServiceCommand;
+        private GetServiceRuntimeStatusCommand getServiceRuntimeStatusCommand;
 
         private StubServiceRuntimeUseCases(DeployServiceResult deployServiceResult) {
             this.deployServiceResult = deployServiceResult;
+            this.getServiceRuntimeStatusResult = new GetServiceRuntimeStatusResult.Success(ServiceRuntimeStatus.RUNNING);
+        }
+
+        private StubServiceRuntimeUseCases(GetServiceRuntimeStatusResult getServiceRuntimeStatusResult) {
+            this.deployServiceResult = new DeployServiceResult.Success();
+            this.getServiceRuntimeStatusResult = getServiceRuntimeStatusResult;
         }
 
         @Override
@@ -146,6 +216,12 @@ class ServiceRuntimeControllerTest {
         @Override
         public StopServiceResult stopService(StopServiceCommand command) {
             return new StopServiceResult.Success();
+        }
+
+        @Override
+        public GetServiceRuntimeStatusResult getServiceRuntimeStatus(GetServiceRuntimeStatusCommand command) {
+            this.getServiceRuntimeStatusCommand = command;
+            return getServiceRuntimeStatusResult;
         }
     }
 }
