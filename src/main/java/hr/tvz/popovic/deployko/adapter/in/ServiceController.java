@@ -84,6 +84,8 @@ public class ServiceController {
             return switch (result) {
                 case DeleteServiceUseCase.DeleteServiceResult.Success _ -> ResponseEntity.noContent().build();
                 case DeleteServiceUseCase.DeleteServiceResult.NotFound _ -> ResponseEntity.notFound().build();
+                case DeleteServiceUseCase.DeleteServiceResult.DeploymentExists _ ->
+                        ResponseEntity.status(HttpStatus.CONFLICT).build();
                 case DeleteServiceUseCase.DeleteServiceResult.Failure _ -> ResponseEntity
                         .status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .build();

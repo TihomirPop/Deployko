@@ -8,6 +8,7 @@ import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
 import hr.tvz.popovic.deployko.adapter.out.docker.DockerDeployContainerAdapter;
 import hr.tvz.popovic.deployko.adapter.out.docker.DockerFindActualDeploymentStateAdapter;
+import hr.tvz.popovic.deployko.adapter.out.docker.DockerRemoveContainerAdapter;
 import hr.tvz.popovic.deployko.adapter.out.docker.DockerStartContainerAdapter;
 import hr.tvz.popovic.deployko.adapter.out.docker.DockerStopContainerAdapter;
 import org.springframework.context.annotation.Bean;
@@ -47,6 +48,11 @@ public class DockerClientConfiguration {
     @Bean
     DockerStopContainerAdapter dockerStopContainerAdapter(DockerClient dockerClient) {
         return new DockerStopContainerAdapter(dockerClient);
+    }
+
+    @Bean
+    DockerRemoveContainerAdapter dockerRemoveContainerAdapter(DockerClient dockerClient) {
+        return new DockerRemoveContainerAdapter(dockerClient);
     }
 
     @Bean

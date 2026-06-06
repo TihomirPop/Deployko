@@ -133,6 +133,18 @@ class ServiceControllerTest {
     }
 
     @Test
+    void returns_conflict_when_deleting_service_with_deployment() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceUseCases(
+                new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),
+                new CreateServiceUseCase.CreateServiceResult.Failure(),
+                new DeleteServiceUseCase.DeleteServiceResult.DeploymentExists()
+        ));
+
+        mockMvc.perform(delete("/services/{serviceName}", "deployko-api"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     void returns_bad_request_when_delete_service_name_is_invalid() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceUseCases(
                 new GetServiceSummariesUseCase.GetServiceSummariesResult.Success(List.of()),

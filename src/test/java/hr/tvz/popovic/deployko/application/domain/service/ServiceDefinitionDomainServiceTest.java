@@ -97,6 +97,20 @@ class ServiceDefinitionDomainServiceTest {
     }
 
     @Test
+    void returns_deployment_exists_when_delete_port_reports_existing_deployment() {
+        ServiceDefinitionDomainService service = new ServiceDefinitionDomainService(
+                _ -> new CreateServicePort.CreateServicePortResult.Success(),
+                _ -> new DeleteServiceByNamePort.DeleteServiceByNameResult.DeploymentExists()
+        );
+
+        DeleteServiceUseCase.DeleteServiceResult result = service.deleteService(
+                new DeleteServiceUseCase.DeleteServiceCommand(new ServiceName("deployko-api"))
+        );
+
+        assertThat(result).isInstanceOf(DeleteServiceUseCase.DeleteServiceResult.DeploymentExists.class);
+    }
+
+    @Test
     void returns_failure_when_delete_port_fails() {
         ServiceDefinitionDomainService service = new ServiceDefinitionDomainService(
                 _ -> new CreateServicePort.CreateServicePortResult.Success(),

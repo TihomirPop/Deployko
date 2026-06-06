@@ -22,11 +22,14 @@ import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCas
 import hr.tvz.popovic.deployko.application.port.in.GetServiceSummariesUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.UninstallServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.out.DeleteDesiredDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
+import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -218,6 +221,146 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(StopServiceUseCase.StopServiceResult.Success.class);
+    }
+
+    @Test
+    void uninstalls_service_when_desired_deployment_exists_and_container_is_removed() {
+        FakeRemoveContainerPort removeContainerPort = new FakeRemoveContainerPort(
+                new RemoveContainerPort.RemoveContainerResult.Success()
+        );
+        FakeDeleteDesiredDeploymentPort deleteDesiredDeploymentPort = new FakeDeleteDesiredDeploymentPort(
+                new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted()
+        );
+        ServiceRuntimeDomainService service = serviceWithUninstallPorts(
+                successfulFindDesiredDeploymentStatePort(),
+                removeContainerPort,
+                deleteDesiredDeploymentPort
+        );
+
+        UninstallServiceUseCase.UninstallServiceResult result = service.uninstallService(
+                new UninstallServiceUseCase.UninstallServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(UninstallServiceUseCase.UninstallServiceResult.Success.class);
+        assertThat(removeContainerPort.removedServiceNames).containsExactly(SERVICE.name());
+        assertThat(deleteDesiredDeploymentPort.deletedServiceNames).containsExactly(SERVICE.name());
+    }
+
+    @Test
+    void uninstalls_service_when_desired_deployment_exists_and_container_is_missing() {
+        FakeDeleteDesiredDeploymentPort deleteDesiredDeploymentPort = new FakeDeleteDesiredDeploymentPort(
+                new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted()
+        );
+        ServiceRuntimeDomainService service = serviceWithUninstallPorts(
+                successfulFindDesiredDeploymentStatePort(),
+                new FakeRemoveContainerPort(new RemoveContainerPort.RemoveContainerResult.MissingContainer()),
+                deleteDesiredDeploymentPort
+        );
+
+        UninstallServiceUseCase.UninstallServiceResult result = service.uninstallService(
+                new UninstallServiceUseCase.UninstallServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(UninstallServiceUseCase.UninstallServiceResult.Success.class);
+        assertThat(deleteDesiredDeploymentPort.deletedServiceNames).containsExactly(SERVICE.name());
+    }
+
+    @Test
+    void removes_orphaned_container_when_no_desired_deployment_exists() {
+        FakeDeleteDesiredDeploymentPort deleteDesiredDeploymentPort = new FakeDeleteDesiredDeploymentPort(
+                new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted()
+        );
+        ServiceRuntimeDomainService service = serviceWithUninstallPorts(
+                _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.NotDeployed(),
+                new FakeRemoveContainerPort(new RemoveContainerPort.RemoveContainerResult.Success()),
+                deleteDesiredDeploymentPort
+        );
+
+        UninstallServiceUseCase.UninstallServiceResult result = service.uninstallService(
+                new UninstallServiceUseCase.UninstallServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(UninstallServiceUseCase.UninstallServiceResult.Success.class);
+        assertThat(deleteDesiredDeploymentPort.deletedServiceNames).isEmpty();
+    }
+
+    @Test
+    void returns_not_deployed_when_no_desired_deployment_or_container_exists() {
+        ServiceRuntimeDomainService service = serviceWithUninstallPorts(
+                _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.NotDeployed(),
+                new FakeRemoveContainerPort(new RemoveContainerPort.RemoveContainerResult.MissingContainer()),
+                new FakeDeleteDesiredDeploymentPort(new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted())
+        );
+
+        UninstallServiceUseCase.UninstallServiceResult result = service.uninstallService(
+                new UninstallServiceUseCase.UninstallServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(UninstallServiceUseCase.UninstallServiceResult.NotDeployed.class);
+    }
+
+    @Test
+    void returns_drift_when_uninstall_finds_duplicate_managed_containers() {
+        FakeDeleteDesiredDeploymentPort deleteDesiredDeploymentPort = new FakeDeleteDesiredDeploymentPort(
+                new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted()
+        );
+        ServiceRuntimeDomainService service = serviceWithUninstallPorts(
+                successfulFindDesiredDeploymentStatePort(),
+                new FakeRemoveContainerPort(new RemoveContainerPort.RemoveContainerResult.DuplicateManagedContainers()),
+                deleteDesiredDeploymentPort
+        );
+
+        UninstallServiceUseCase.UninstallServiceResult result = service.uninstallService(
+                new UninstallServiceUseCase.UninstallServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(UninstallServiceUseCase.UninstallServiceResult.Drift.class);
+        assertThat(deleteDesiredDeploymentPort.deletedServiceNames).isEmpty();
+    }
+
+    @Test
+    void returns_docker_failure_when_uninstall_container_remove_fails() {
+        ServiceRuntimeDomainService service = serviceWithUninstallPorts(
+                successfulFindDesiredDeploymentStatePort(),
+                new FakeRemoveContainerPort(new RemoveContainerPort.RemoveContainerResult.Failure()),
+                new FakeDeleteDesiredDeploymentPort(new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted())
+        );
+
+        UninstallServiceUseCase.UninstallServiceResult result = service.uninstallService(
+                new UninstallServiceUseCase.UninstallServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(UninstallServiceUseCase.UninstallServiceResult.DockerFailure.class);
+    }
+
+    @Test
+    void returns_desired_state_failure_when_uninstall_desired_deployment_delete_fails() {
+        ServiceRuntimeDomainService service = serviceWithUninstallPorts(
+                successfulFindDesiredDeploymentStatePort(),
+                new FakeRemoveContainerPort(new RemoveContainerPort.RemoveContainerResult.Success()),
+                new FakeDeleteDesiredDeploymentPort(new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure())
+        );
+
+        UninstallServiceUseCase.UninstallServiceResult result = service.uninstallService(
+                new UninstallServiceUseCase.UninstallServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(UninstallServiceUseCase.UninstallServiceResult.DesiredStateFailure.class);
+    }
+
+    @Test
+    void returns_service_not_found_when_uninstall_desired_state_lookup_reports_missing_service() {
+        ServiceRuntimeDomainService service = serviceWithUninstallPorts(
+                _ -> new FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.ServiceNotFound(),
+                new FakeRemoveContainerPort(new RemoveContainerPort.RemoveContainerResult.Success()),
+                new FakeDeleteDesiredDeploymentPort(new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted())
+        );
+
+        UninstallServiceUseCase.UninstallServiceResult result = service.uninstallService(
+                new UninstallServiceUseCase.UninstallServiceCommand(SERVICE.name())
+        );
+
+        assertThat(result).isInstanceOf(UninstallServiceUseCase.UninstallServiceResult.ServiceNotFound.class);
     }
 
     @Test
@@ -545,6 +688,25 @@ class ServiceRuntimeDomainServiceTest {
         );
     }
 
+    private static ServiceRuntimeDomainService serviceWithUninstallPorts(
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort
+    ) {
+        return new ServiceRuntimeDomainService(
+                _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
+                _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
+                successfulUpdateStatePort(),
+                findDesiredDeploymentStatePort,
+                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                successfulStartContainerPort(),
+                successfulStopContainerPort(),
+                removeContainerPort,
+                deleteDesiredDeploymentPort,
+                successfulFindActualDeploymentStatePort()
+        );
+    }
+
     private record StatusCase(
             DesiredDeploymentState desiredState,
             ActualDeploymentState actualState,
@@ -586,6 +748,38 @@ class ServiceRuntimeDomainServiceTest {
         @Override
         public DeployContainerResult deploy(DesiredDeployment desiredDeployment) {
             deployedDeployments.add(desiredDeployment);
+            return result;
+        }
+    }
+
+    private static final class FakeRemoveContainerPort implements RemoveContainerPort {
+
+        private final RemoveContainerResult result;
+        private final List<ServiceName> removedServiceNames = new ArrayList<>();
+
+        private FakeRemoveContainerPort(RemoveContainerResult result) {
+            this.result = result;
+        }
+
+        @Override
+        public RemoveContainerResult remove(ServiceName serviceName) {
+            removedServiceNames.add(serviceName);
+            return result;
+        }
+    }
+
+    private static final class FakeDeleteDesiredDeploymentPort implements DeleteDesiredDeploymentPort {
+
+        private final DeleteDesiredDeploymentResult result;
+        private final List<ServiceName> deletedServiceNames = new ArrayList<>();
+
+        private FakeDeleteDesiredDeploymentPort(DeleteDesiredDeploymentResult result) {
+            this.result = result;
+        }
+
+        @Override
+        public DeleteDesiredDeploymentResult delete(ServiceName serviceName) {
+            deletedServiceNames.add(serviceName);
             return result;
         }
     }

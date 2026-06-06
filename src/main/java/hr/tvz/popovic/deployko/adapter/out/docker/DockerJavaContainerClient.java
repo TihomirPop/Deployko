@@ -2,6 +2,8 @@ package hr.tvz.popovic.deployko.adapter.out.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ListContainersCmd;
+import com.github.dockerjava.api.exception.NotFoundException;
+import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.Container;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 
@@ -38,6 +40,19 @@ class DockerJavaContainerClient implements DockerContainerClient {
     public void stopContainer(String containerId) {
         Objects.requireNonNull(containerId, "containerId must not be null");
 
-        dockerClient.stopContainerCmd(containerId).exec();
+        try {
+            dockerClient.stopContainerCmd(containerId).exec();
+        } catch (NotModifiedException _) {
+        }
+    }
+
+    @Override
+    public void removeContainer(String containerId) {
+        Objects.requireNonNull(containerId, "containerId must not be null");
+
+        try {
+            dockerClient.removeContainerCmd(containerId).exec();
+        } catch (NotFoundException _) {
+        }
     }
 }

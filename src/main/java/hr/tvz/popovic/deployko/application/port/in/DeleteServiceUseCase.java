@@ -10,12 +10,16 @@ public interface DeleteServiceUseCase {
     }
 
     sealed interface DeleteServiceResult
-            permits DeleteServiceResult.Success, DeleteServiceResult.NotFound, DeleteServiceResult.Failure {
+            permits DeleteServiceResult.Success, DeleteServiceResult.NotFound, DeleteServiceResult.DeploymentExists,
+            DeleteServiceResult.Failure {
 
         record Success() implements DeleteServiceResult {
         }
 
         record NotFound() implements DeleteServiceResult {
+        }
+
+        record DeploymentExists() implements DeleteServiceResult {
         }
 
         record Failure() implements DeleteServiceResult {

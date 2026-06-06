@@ -286,6 +286,14 @@
             }
         }
 
+        async function uninstallService(button, serviceName) {
+            if (!window.confirm(`Uninstall service "${serviceName}"?`)) {
+                return;
+            }
+
+            await postRuntime(button, serviceName, "/runtime/uninstall", "Service uninstalled.");
+        }
+
         if (!serviceName) {
             title.textContent = "Missing service";
             showStatus(environmentStatus, "No serviceName query parameter was provided.", "error");
@@ -307,6 +315,10 @@
         });
         document.querySelector("[data-action='stop']").addEventListener("click", async event => {
             await postRuntime(event.currentTarget, serviceName, "/runtime/stop", "Service stop requested.");
+            await loadServiceSummary();
+        });
+        document.querySelector("[data-action='uninstall']").addEventListener("click", async event => {
+            await uninstallService(event.currentTarget, serviceName);
             await loadServiceSummary();
         });
         document.querySelector("[data-action='delete']").addEventListener("click", event => {

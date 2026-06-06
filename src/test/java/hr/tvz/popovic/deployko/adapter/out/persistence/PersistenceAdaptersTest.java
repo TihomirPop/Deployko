@@ -18,6 +18,7 @@ import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceNetworkAttachmentPort;
+import hr.tvz.popovic.deployko.application.port.out.DeleteDesiredDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceByNamePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceNetworkAttachmentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort;
@@ -1070,6 +1071,40 @@ class PersistenceAdaptersTest {
     }
 
     @Test
+    void delete_desired_deployment_removes_snapshot() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        desiredDeployments.upsert(desiredDeployment(service));
+
+        DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult result = desiredDeployments.delete(service.name());
+
+        assertThat(result).isInstanceOf(DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted.class);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isZero();
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES)).isZero();
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS)).isZero();
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS)).isZero();
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS)).isZero();
+    }
+
+    @Test
+    void delete_desired_deployment_returns_not_deployed_when_service_has_no_desired_deployment() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult result = desiredDeployments.delete(service.name());
+
+        assertThat(result).isInstanceOf(DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.NotDeployed.class);
+    }
+
+    @Test
+    void delete_desired_deployment_returns_service_not_found_when_service_does_not_exist() {
+        DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult result =
+                desiredDeployments.delete(new ServiceName("missing-api"));
+
+        assertThat(result).isInstanceOf(DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.ServiceNotFound.class);
+    }
+
+    @Test
     void record_ci_deployment_upserts_last_deployed_timestamp() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
         serviceDefinitions.create(service);
@@ -1129,6 +1164,19 @@ class PersistenceAdaptersTest {
         assertThat(dsl.fetchCount(SERVICE_PORT_MAPPINGS)).isZero();
         assertThat(dsl.fetchCount(SERVICE_VOLUME_MOUNTS)).isZero();
         assertThat(dsl.fetchCount(SERVICE_NETWORK_ATTACHMENTS)).isZero();
+    }
+
+    @Test
+    void delete_by_name_returns_deployment_exists_when_service_has_desired_deployment() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        desiredDeployments.upsert(desiredDeployment(service));
+
+        DeleteServiceByNamePort.DeleteServiceByNameResult result = serviceDefinitions.deleteByName(service.name());
+
+        assertThat(result).isInstanceOf(DeleteServiceByNamePort.DeleteServiceByNameResult.DeploymentExists.class);
+        assertThat(dsl.fetchCount(SERVICES)).isEqualTo(1);
+        assertThat(dsl.fetchCount(SERVICE_DESIRED_DEPLOYMENTS)).isEqualTo(1);
     }
 
     @Test

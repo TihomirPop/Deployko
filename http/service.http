@@ -373,6 +373,15 @@ POST {{host}}/services/missing-service/runtime/stop
 ### Stop invalid
 POST {{host}}/services/Deployko Api/runtime/stop
 
+### Uninstall
+POST {{host}}/services/{{serviceName}}/runtime/uninstall
+
+### Uninstall missing
+POST {{host}}/services/missing-service/runtime/uninstall
+
+### Uninstall invalid
+POST {{host}}/services/Deployko Api/runtime/uninstall
+
 ### Runtime status
 GET {{host}}/services/{{serviceName}}/runtime/status
 

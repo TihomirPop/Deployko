@@ -145,13 +145,25 @@ public final class ServiceDefinitionPersistenceAdapter
         Objects.requireNonNull(serviceName, "serviceName must not be null");
 
         try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new DeleteServiceByNameResult.NotFound();
+            }
+
+            boolean deploymentExists = dsl.fetchExists(
+                    SERVICE_DESIRED_DEPLOYMENTS,
+                    SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID.eq(serviceId.get())
+            );
+            if (deploymentExists) {
+                return new DeleteServiceByNameResult.DeploymentExists();
+            }
+
             int deletedRows = dsl
                     .deleteFrom(SERVICES)
-                    .where(SERVICES.NAME.eq(serviceName.value()))
+                    .where(SERVICES.ID.eq(serviceId.get()))
                     .execute();
 
             return switch (deletedRows) {
-                case 0 -> new DeleteServiceByNameResult.NotFound();
                 case 1 -> new DeleteServiceByNameResult.Deleted();
                 default -> new DeleteServiceByNameResult.Failure();
             };

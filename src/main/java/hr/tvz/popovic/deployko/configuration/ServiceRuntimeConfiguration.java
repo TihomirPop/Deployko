@@ -1,11 +1,13 @@
 package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeDomainService;
+import hr.tvz.popovic.deployko.application.port.out.DeleteDesiredDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
+import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -25,6 +27,8 @@ public class ServiceRuntimeConfiguration {
             DeployContainerPort deployContainerPort,
             StartContainerPort startContainerPort,
             StopContainerPort stopContainerPort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
             FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
     ) {
@@ -36,6 +40,8 @@ public class ServiceRuntimeConfiguration {
                 deployContainerPort,
                 startContainerPort,
                 stopContainerPort,
+                removeContainerPort,
+                deleteDesiredDeploymentPort,
                 findActualDeploymentStatePort,
                 findServiceSummaryCandidatesPort
         );

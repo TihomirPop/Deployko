@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.port.out.DeleteDesiredDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
@@ -20,7 +21,8 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class DesiredDeploymentPersistenceAdapter
-        implements UpsertDesiredDeploymentPort, UpdateDesiredDeploymentStatePort, FindDesiredDeploymentStatePort {
+        implements UpsertDesiredDeploymentPort, UpdateDesiredDeploymentStatePort, FindDesiredDeploymentStatePort,
+        DeleteDesiredDeploymentPort {
 
     private static final Logger log = LoggerFactory.getLogger(DesiredDeploymentPersistenceAdapter.class);
 
@@ -114,6 +116,32 @@ public final class DesiredDeploymentPersistenceAdapter
         } catch (DataAccessException | IllegalArgumentException exception) {
             log.error("error while finding desired deployment state", exception);
             return new FindDesiredDeploymentStateResult.Failure();
+        }
+    }
+
+    @Override
+    public DeleteDesiredDeploymentResult delete(ServiceName serviceName) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+
+        try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new DeleteDesiredDeploymentResult.ServiceNotFound();
+            }
+
+            int deletedRows = dsl
+                    .deleteFrom(SERVICE_DESIRED_DEPLOYMENTS)
+                    .where(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID.eq(serviceId.get()))
+                    .execute();
+
+            return switch (deletedRows) {
+                case 0 -> new DeleteDesiredDeploymentResult.NotDeployed();
+                case 1 -> new DeleteDesiredDeploymentResult.Deleted();
+                default -> new DeleteDesiredDeploymentResult.Failure();
+            };
+        } catch (DataAccessException exception) {
+            log.error("error while deleting desired deployment", exception);
+            return new DeleteDesiredDeploymentResult.Failure();
         }
     }
 

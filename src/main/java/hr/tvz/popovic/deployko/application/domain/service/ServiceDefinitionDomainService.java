@@ -38,6 +38,8 @@ public class ServiceDefinitionDomainService implements CreateServiceUseCase, Del
         return switch (deleteServiceByNamePort.deleteByName(command.serviceName())) {
             case DeleteServiceByNamePort.DeleteServiceByNameResult.Deleted _ -> new DeleteServiceResult.Success();
             case DeleteServiceByNamePort.DeleteServiceByNameResult.NotFound _ -> new DeleteServiceResult.NotFound();
+            case DeleteServiceByNamePort.DeleteServiceByNameResult.DeploymentExists _ ->
+                    new DeleteServiceResult.DeploymentExists();
             case DeleteServiceByNamePort.DeleteServiceByNameResult.Failure _ -> new DeleteServiceResult.Failure();
         };
     }

@@ -104,6 +104,10 @@ class DockerStartContainerAdapterTest {
         @Override
         public void stopContainer(String containerId) {
         }
+
+        @Override
+        public void removeContainer(String containerId) {
+        }
     }
 
     private static final class TestContainer extends Container {

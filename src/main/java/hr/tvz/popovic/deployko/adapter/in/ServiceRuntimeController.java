@@ -6,6 +6,7 @@ import hr.tvz.popovic.deployko.application.port.in.DeployServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.UninstallServiceUseCase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,17 +23,20 @@ public class ServiceRuntimeController {
     private final DeployServiceUseCase deployServiceUseCase;
     private final StartServiceUseCase startServiceUseCase;
     private final StopServiceUseCase stopServiceUseCase;
+    private final UninstallServiceUseCase uninstallServiceUseCase;
     private final GetServiceRuntimeStatusUseCase getServiceRuntimeStatusUseCase;
 
     public ServiceRuntimeController(
             DeployServiceUseCase deployServiceUseCase,
             StartServiceUseCase startServiceUseCase,
             StopServiceUseCase stopServiceUseCase,
+            UninstallServiceUseCase uninstallServiceUseCase,
             GetServiceRuntimeStatusUseCase getServiceRuntimeStatusUseCase
     ) {
         this.deployServiceUseCase = deployServiceUseCase;
         this.startServiceUseCase = startServiceUseCase;
         this.stopServiceUseCase = stopServiceUseCase;
+        this.uninstallServiceUseCase = uninstallServiceUseCase;
         this.getServiceRuntimeStatusUseCase = getServiceRuntimeStatusUseCase;
     }
 
@@ -98,6 +102,29 @@ public class ServiceRuntimeController {
                 case StopServiceUseCase.StopServiceResult.Drift _ -> ResponseEntity.status(HttpStatus.CONFLICT).build();
                 case StopServiceUseCase.StopServiceResult.DesiredStateFailure _,
                      StopServiceUseCase.StopServiceResult.DockerFailure _ -> ResponseEntity
+                        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .build();
+            };
+        } catch (IllegalArgumentException | NullPointerException _) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/uninstall")
+    public ResponseEntity<Void> uninstallService(@PathVariable String serviceName) {
+        try {
+            UninstallServiceUseCase.UninstallServiceResult result = uninstallServiceUseCase.uninstallService(
+                    new UninstallServiceUseCase.UninstallServiceCommand(new ServiceName(serviceName))
+            );
+
+            return switch (result) {
+                case UninstallServiceUseCase.UninstallServiceResult.Success _ -> ResponseEntity.noContent().build();
+                case UninstallServiceUseCase.UninstallServiceResult.ServiceNotFound _,
+                     UninstallServiceUseCase.UninstallServiceResult.NotDeployed _ -> ResponseEntity.notFound().build();
+                case UninstallServiceUseCase.UninstallServiceResult.Drift _ ->
+                        ResponseEntity.status(HttpStatus.CONFLICT).build();
+                case UninstallServiceUseCase.UninstallServiceResult.DesiredStateFailure _,
+                     UninstallServiceUseCase.UninstallServiceResult.DockerFailure _ -> ResponseEntity
                         .status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .build();
             };

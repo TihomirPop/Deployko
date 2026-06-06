@@ -13,11 +13,14 @@ import hr.tvz.popovic.deployko.application.port.in.GetServiceRuntimeStatusUseCas
 import hr.tvz.popovic.deployko.application.port.in.GetServiceSummariesUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StartServiceUseCase;
 import hr.tvz.popovic.deployko.application.port.in.StopServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.in.UninstallServiceUseCase;
+import hr.tvz.popovic.deployko.application.port.out.DeleteDesiredDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
+import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -30,7 +33,7 @@ import java.util.Optional;
 
 public final class ServiceRuntimeDomainService
         implements DeployServiceUseCase, StartServiceUseCase, StopServiceUseCase, GetServiceRuntimeStatusUseCase,
-        GetServiceSummariesUseCase {
+        GetServiceSummariesUseCase, UninstallServiceUseCase {
 
     private final FindServiceDefinitionPort findServiceDefinitionPort;
     private final UpsertDesiredDeploymentPort upsertDesiredDeploymentPort;
@@ -39,6 +42,8 @@ public final class ServiceRuntimeDomainService
     private final DeployContainerPort deployContainerPort;
     private final StartContainerPort startContainerPort;
     private final StopContainerPort stopContainerPort;
+    private final RemoveContainerPort removeContainerPort;
+    private final DeleteDesiredDeploymentPort deleteDesiredDeploymentPort;
     private final FindActualDeploymentStatePort findActualDeploymentStatePort;
     private final FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort;
 
@@ -60,6 +65,34 @@ public final class ServiceRuntimeDomainService
                 deployContainerPort,
                 startContainerPort,
                 stopContainerPort,
+                _ -> new RemoveContainerPort.RemoveContainerResult.Failure(),
+                _ -> new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure(),
+                findActualDeploymentStatePort
+        );
+    }
+
+    public ServiceRuntimeDomainService(
+            FindServiceDefinitionPort findServiceDefinitionPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort
+    ) {
+        this(
+                findServiceDefinitionPort,
+                upsertDesiredDeploymentPort,
+                updateDesiredDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort,
+                removeContainerPort,
+                deleteDesiredDeploymentPort,
                 findActualDeploymentStatePort,
                 () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure()
         );
@@ -73,6 +106,34 @@ public final class ServiceRuntimeDomainService
             DeployContainerPort deployContainerPort,
             StartContainerPort startContainerPort,
             StopContainerPort stopContainerPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort,
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
+    ) {
+        this(
+                findServiceDefinitionPort,
+                upsertDesiredDeploymentPort,
+                updateDesiredDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort,
+                _ -> new RemoveContainerPort.RemoveContainerResult.Failure(),
+                _ -> new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure(),
+                findActualDeploymentStatePort,
+                findServiceSummaryCandidatesPort
+        );
+    }
+
+    public ServiceRuntimeDomainService(
+            FindServiceDefinitionPort findServiceDefinitionPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
             FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
     ) {
@@ -103,6 +164,14 @@ public final class ServiceRuntimeDomainService
         this.stopContainerPort = Objects.requireNonNull(
                 stopContainerPort,
                 "stopContainerPort must not be null"
+        );
+        this.removeContainerPort = Objects.requireNonNull(
+                removeContainerPort,
+                "removeContainerPort must not be null"
+        );
+        this.deleteDesiredDeploymentPort = Objects.requireNonNull(
+                deleteDesiredDeploymentPort,
+                "deleteDesiredDeploymentPort must not be null"
         );
         this.findActualDeploymentStatePort = Objects.requireNonNull(
                 findActualDeploymentStatePort,
@@ -171,6 +240,22 @@ public final class ServiceRuntimeDomainService
     }
 
     @Override
+    public UninstallServiceResult uninstallService(UninstallServiceCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        return switch (findDesiredDeploymentStatePort.findDesiredState(command.serviceName())) {
+            case FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Found _ ->
+                    uninstallDeployedService(command.serviceName());
+            case FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.NotDeployed _ ->
+                    uninstallWithoutDesiredDeployment(command.serviceName());
+            case FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.ServiceNotFound _ ->
+                    new UninstallServiceResult.ServiceNotFound();
+            case FindDesiredDeploymentStatePort.FindDesiredDeploymentStateResult.Failure _ ->
+                    new UninstallServiceResult.DesiredStateFailure();
+        };
+    }
+
+    @Override
     public GetServiceRuntimeStatusResult getServiceRuntimeStatus(GetServiceRuntimeStatusCommand command) {
         Objects.requireNonNull(command, "command must not be null");
 
@@ -201,6 +286,39 @@ public final class ServiceRuntimeDomainService
                     serviceSummariesFrom(found.services());
             case FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure _ ->
                     new GetServiceSummariesResult.Failure();
+        };
+    }
+
+    private UninstallServiceResult uninstallDeployedService(ServiceName serviceName) {
+        return switch (removeContainerPort.remove(serviceName)) {
+            case RemoveContainerPort.RemoveContainerResult.Success _,
+                 RemoveContainerPort.RemoveContainerResult.MissingContainer _ -> deleteDesiredDeployment(serviceName);
+            case RemoveContainerPort.RemoveContainerResult.DuplicateManagedContainers _ ->
+                    new UninstallServiceResult.Drift();
+            case RemoveContainerPort.RemoveContainerResult.Failure _ -> new UninstallServiceResult.DockerFailure();
+        };
+    }
+
+    private UninstallServiceResult uninstallWithoutDesiredDeployment(ServiceName serviceName) {
+        return switch (removeContainerPort.remove(serviceName)) {
+            case RemoveContainerPort.RemoveContainerResult.Success _ -> new UninstallServiceResult.Success();
+            case RemoveContainerPort.RemoveContainerResult.MissingContainer _ -> new UninstallServiceResult.NotDeployed();
+            case RemoveContainerPort.RemoveContainerResult.DuplicateManagedContainers _ ->
+                    new UninstallServiceResult.Drift();
+            case RemoveContainerPort.RemoveContainerResult.Failure _ -> new UninstallServiceResult.DockerFailure();
+        };
+    }
+
+    private UninstallServiceResult deleteDesiredDeployment(ServiceName serviceName) {
+        return switch (deleteDesiredDeploymentPort.delete(serviceName)) {
+            case DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Deleted _ ->
+                    new UninstallServiceResult.Success();
+            case DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.ServiceNotFound _ ->
+                    new UninstallServiceResult.ServiceNotFound();
+            case DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.NotDeployed _ ->
+                    new UninstallServiceResult.NotDeployed();
+            case DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure _ ->
+                    new UninstallServiceResult.DesiredStateFailure();
         };
     }
 

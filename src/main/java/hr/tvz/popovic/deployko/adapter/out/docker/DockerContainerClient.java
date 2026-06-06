@@ -12,4 +12,6 @@ interface DockerContainerClient {
     void startContainer(String containerId);
 
     void stopContainer(String containerId);
+
+    void removeContainer(String containerId);
 }
