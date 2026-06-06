@@ -8,6 +8,7 @@ import com.github.dockerjava.api.exception.DockerException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.RestartPolicy;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 
 import java.util.Objects;
@@ -51,6 +52,7 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
                         HostConfig.newHostConfig()
                                 .withBinds(DockerVolumeBinds.from(desiredDeployment.runtimeConfiguration().volumeMounts()))
                                 .withPortBindings(DockerPortBindings.from(desiredDeployment.runtimeConfiguration().portMappings()))
+                                .withRestartPolicy(RestartPolicy.unlessStoppedRestart())
                 );
 
         CreateContainerResponse response = command.exec();
