@@ -1,12 +1,16 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateDeploymentStatusPort;
+
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.jooq.DSLContext;
 import org.jooq.exception.DataAccessException;
 import org.slf4j.Logger;
@@ -16,7 +20,7 @@ import org.springframework.stereotype.Component;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DEPLOYMENT_HISTORY;
 
 @Component
-public final class DeploymentHistoryPersistenceAdapter implements RecordDeploymentHistoryPort {
+public final class DeploymentHistoryPersistenceAdapter implements RecordDeploymentHistoryPort, UpdateDeploymentStatusPort {
 
     private static final Logger log = LoggerFactory.getLogger(DeploymentHistoryPersistenceAdapter.class);
 
@@ -41,6 +45,7 @@ public final class DeploymentHistoryPersistenceAdapter implements RecordDeployme
                     .insertInto(SERVICE_DEPLOYMENT_HISTORY)
                     .set(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID, serviceId.get())
                     .set(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION, imageVersion.value())
+                    .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, DeploymentStatus.IN_PROGRESS.name())
                     .returningResult(SERVICE_DEPLOYMENT_HISTORY.ID)
                     .fetchSingle(SERVICE_DEPLOYMENT_HISTORY.ID);
 
@@ -48,6 +53,27 @@ public final class DeploymentHistoryPersistenceAdapter implements RecordDeployme
         } catch (DataAccessException exception) {
             log.error("error while recording deployment history", exception);
             return new RecordDeploymentHistoryResult.Failure();
+        }
+    }
+
+    @Override
+    public UpdateDeploymentStatusResult updateStatus(DeploymentId deploymentId, DeploymentStatus status) {
+        Objects.requireNonNull(deploymentId, "deploymentId must not be null");
+        Objects.requireNonNull(status, "status must not be null");
+
+        try {
+            int updated = dsl
+                    .update(SERVICE_DEPLOYMENT_HISTORY)
+                    .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, status.name())
+                    .where(SERVICE_DEPLOYMENT_HISTORY.ID.eq(deploymentId.value()))
+                    .execute();
+
+            return updated == 1
+                    ? new UpdateDeploymentStatusResult.Success()
+                    : new UpdateDeploymentStatusResult.DeploymentNotFound();
+        } catch (DataAccessException exception) {
+            log.error("error while updating deployment status", exception);
+            return new UpdateDeploymentStatusResult.Failure();
         }
     }
 }

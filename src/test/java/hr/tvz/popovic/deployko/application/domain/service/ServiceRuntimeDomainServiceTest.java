@@ -123,6 +123,45 @@ class ServiceRuntimeDomainServiceTest {
     }
 
     @Test
+    void starts_deployment_monitor_after_container_deployment_succeeds() {
+        RecordingDeploymentMonitorDomainService deploymentMonitorDomainService = new RecordingDeploymentMonitorDomainService();
+        ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
+                _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
+                new FakeUpsertDesiredDeploymentPort(new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success()),
+                successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
+                new FakeDeployContainerPort(new DeployContainerPort.DeployContainerResult.Success()),
+                successfulStartContainerPort(),
+                successfulStopContainerPort(),
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort(),
+                deploymentMonitorDomainService
+        );
+
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        );
+
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.Success.class);
+        assertThat(deploymentMonitorDomainService.records)
+                .containsExactly(new DeploymentMonitorRecord(
+                        new DesiredDeployment(
+                                SERVICE.name(),
+                                SERVICE.imageRepository(),
+                                IMAGE_VERSION,
+                                SERVICE.runtimeConfiguration(),
+                                DesiredDeploymentState.RUNNING
+                        ),
+                        DEPLOYMENT_ID
+                ));
+    }
+
+    @Test
     void returns_desired_state_failure_when_deployment_history_recording_fails() {
         FakeUpsertDesiredDeploymentPort upsertDesiredDeploymentPort = new FakeUpsertDesiredDeploymentPort(
                 new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success()
@@ -262,6 +301,7 @@ class ServiceRuntimeDomainServiceTest {
 
     @Test
     void returns_docker_failure_when_deploy_port_fails() {
+        RecordingDeploymentMonitorDomainService deploymentMonitorDomainService = new RecordingDeploymentMonitorDomainService();
         ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
@@ -270,7 +310,14 @@ class ServiceRuntimeDomainServiceTest {
                 (_, _) -> new DeployContainerPort.DeployContainerResult.Failure(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                successfulFindActualDeploymentStatePort()
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort(),
+                deploymentMonitorDomainService
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -278,6 +325,7 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.DockerFailure.class);
+        assertThat(deploymentMonitorDomainService.records).isEmpty();
     }
 
     @Test
@@ -853,6 +901,9 @@ class ServiceRuntimeDomainServiceTest {
     private record DeploymentHistoryRecord(ServiceName serviceName, ImageVersion imageVersion) {
     }
 
+    private record DeploymentMonitorRecord(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
+    }
+
     private static final class FakeUpsertDesiredDeploymentPort implements UpsertDesiredDeploymentPort {
 
         private final UpsertDesiredDeploymentResult result;
@@ -921,6 +972,16 @@ class ServiceRuntimeDomainServiceTest {
             events.add("record-history");
             records.add(new DeploymentHistoryRecord(serviceName, imageVersion));
             return result;
+        }
+    }
+
+    private static final class RecordingDeploymentMonitorDomainService extends DeploymentMonitorDomainService {
+
+        private final List<DeploymentMonitorRecord> records = new ArrayList<>();
+
+        @Override
+        public void monitorDeployment(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
+            records.add(new DeploymentMonitorRecord(desiredDeployment, deploymentId));
         }
     }
 

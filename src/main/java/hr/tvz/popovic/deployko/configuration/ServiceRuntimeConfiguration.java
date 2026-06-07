@@ -1,5 +1,6 @@
 package hr.tvz.popovic.deployko.configuration;
 
+import hr.tvz.popovic.deployko.application.domain.service.DeploymentMonitorDomainService;
 import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeDomainService;
 import hr.tvz.popovic.deployko.application.port.out.DeleteDesiredDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
@@ -11,6 +12,7 @@ import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateDeploymentStatusPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.springframework.context.annotation.Bean;
@@ -32,7 +34,8 @@ public class ServiceRuntimeConfiguration {
             DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
             RecordDeploymentHistoryPort recordDeploymentHistoryPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
-            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
+            DeploymentMonitorDomainService deploymentMonitorDomainService
     ) {
         return new ServiceRuntimeDomainService(
                 findServiceDefinitionPort,
@@ -46,8 +49,21 @@ public class ServiceRuntimeConfiguration {
                 deleteDesiredDeploymentPort,
                 recordDeploymentHistoryPort,
                 findActualDeploymentStatePort,
-                findServiceSummaryCandidatesPort
+                findServiceSummaryCandidatesPort,
+                deploymentMonitorDomainService
         );
     }
 
+    @Bean
+    DeploymentMonitorDomainService deploymentMonitorDomainService(
+            FindActualDeploymentStatePort findActualDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            UpdateDeploymentStatusPort updateDeploymentStatusPort
+    ) {
+        return new DeploymentMonitorDomainService(
+                findActualDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                updateDeploymentStatusPort
+        );
+    }
 }

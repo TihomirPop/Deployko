@@ -77,6 +77,20 @@ public class ServiceDeploymentHistoryRecord extends UpdatableRecordImpl<ServiceD
         return (OffsetDateTime) get(3);
     }
 
+    /**
+     * Setter for <code>public.service_deployment_history.status</code>.
+     */
+    public void setStatus(String value) {
+        set(4, value);
+    }
+
+    /**
+     * Getter for <code>public.service_deployment_history.status</code>.
+     */
+    public String getStatus() {
+        return (String) get(4);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -100,13 +114,14 @@ public class ServiceDeploymentHistoryRecord extends UpdatableRecordImpl<ServiceD
     /**
      * Create a detached, initialised ServiceDeploymentHistoryRecord
      */
-    public ServiceDeploymentHistoryRecord(UUID id, UUID serviceId, String imageVersion, OffsetDateTime recordedAt) {
+    public ServiceDeploymentHistoryRecord(UUID id, UUID serviceId, String imageVersion, OffsetDateTime recordedAt, String status) {
         super(ServiceDeploymentHistory.SERVICE_DEPLOYMENT_HISTORY);
 
         setId(id);
         setServiceId(serviceId);
         setImageVersion(imageVersion);
         setRecordedAt(recordedAt);
+        setStatus(status);
         resetChangedOnNotNull();
     }
 }

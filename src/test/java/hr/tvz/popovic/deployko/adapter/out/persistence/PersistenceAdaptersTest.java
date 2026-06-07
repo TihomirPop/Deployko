@@ -2,6 +2,8 @@ package hr.tvz.popovic.deployko.adapter.out.persistence;
 
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
@@ -37,6 +39,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordCiDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateDeploymentStatusPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
@@ -1182,8 +1185,40 @@ class PersistenceAdaptersTest {
                         .on(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID.eq(SERVICES.ID))
                         .where(SERVICES.NAME.eq("billing-api"))
                         .and(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION.eq("2.0.0"))
+                        .and(SERVICE_DEPLOYMENT_HISTORY.STATUS.eq(DeploymentStatus.IN_PROGRESS.name()))
                         .and(SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT.isNotNull())
         )).isTrue();
+    }
+
+    @Test
+    void update_deployment_history_status_updates_recorded_deployment() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded recorded =
+                (RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded)
+                        deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
+
+        UpdateDeploymentStatusPort.UpdateDeploymentStatusResult result =
+                deploymentHistory.updateStatus(recorded.deploymentId(), DeploymentStatus.CANCELED);
+
+        assertThat(result).isInstanceOf(UpdateDeploymentStatusPort.UpdateDeploymentStatusResult.Success.class);
+        assertThat(dsl
+                .select(SERVICE_DEPLOYMENT_HISTORY.STATUS)
+                .from(SERVICE_DEPLOYMENT_HISTORY)
+                .where(SERVICE_DEPLOYMENT_HISTORY.ID.eq(recorded.deploymentId().value()))
+                .fetchSingle(SERVICE_DEPLOYMENT_HISTORY.STATUS))
+                .isEqualTo(DeploymentStatus.CANCELED.name());
+    }
+
+    @Test
+    void update_deployment_history_status_returns_not_found_for_missing_deployment() {
+        UpdateDeploymentStatusPort.UpdateDeploymentStatusResult result = deploymentHistory.updateStatus(
+                new DeploymentId(UUID.fromString("018f4b5d-9c64-7000-9f2e-4d8fbf9f1b22")),
+                DeploymentStatus.FAILURE
+        );
+
+        assertThat(result)
+                .isInstanceOf(UpdateDeploymentStatusPort.UpdateDeploymentStatusResult.DeploymentNotFound.class);
     }
 
     @Test

@@ -50,6 +50,7 @@ public final class ServiceRuntimeDomainService
     private final RecordDeploymentHistoryPort recordDeploymentHistoryPort;
     private final FindActualDeploymentStatePort findActualDeploymentStatePort;
     private final FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort;
+    private final DeploymentMonitorDomainService deploymentMonitorDomainService;
 
     public ServiceRuntimeDomainService(
             FindServiceDefinitionPort findServiceDefinitionPort,
@@ -75,7 +76,8 @@ public final class ServiceRuntimeDomainService
                         new DeploymentId(UUID.randomUUID())
                 ),
                 findActualDeploymentStatePort,
-                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure()
+                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure(),
+                DeploymentMonitorDomainService.noop()
         );
     }
 
@@ -105,7 +107,8 @@ public final class ServiceRuntimeDomainService
                         new DeploymentId(UUID.randomUUID())
                 ),
                 findActualDeploymentStatePort,
-                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure()
+                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure(),
+                DeploymentMonitorDomainService.noop()
         );
     }
 
@@ -134,7 +137,8 @@ public final class ServiceRuntimeDomainService
                         new DeploymentId(UUID.randomUUID())
                 ),
                 findActualDeploymentStatePort,
-                findServiceSummaryCandidatesPort
+                findServiceSummaryCandidatesPort,
+                DeploymentMonitorDomainService.noop()
         );
     }
 
@@ -151,6 +155,38 @@ public final class ServiceRuntimeDomainService
             RecordDeploymentHistoryPort recordDeploymentHistoryPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
             FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
+    ) {
+        this(
+                findServiceDefinitionPort,
+                upsertDesiredDeploymentPort,
+                updateDesiredDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort,
+                removeContainerPort,
+                deleteDesiredDeploymentPort,
+                recordDeploymentHistoryPort,
+                findActualDeploymentStatePort,
+                findServiceSummaryCandidatesPort,
+                DeploymentMonitorDomainService.noop()
+        );
+    }
+
+    public ServiceRuntimeDomainService(
+            FindServiceDefinitionPort findServiceDefinitionPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
+            RecordDeploymentHistoryPort recordDeploymentHistoryPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort,
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
+            DeploymentMonitorDomainService deploymentMonitorDomainService
     ) {
         this.findServiceDefinitionPort = Objects.requireNonNull(
                 findServiceDefinitionPort,
@@ -200,6 +236,10 @@ public final class ServiceRuntimeDomainService
                 findServiceSummaryCandidatesPort,
                 "findServiceSummaryCandidatesPort must not be null"
         );
+        this.deploymentMonitorDomainService = Objects.requireNonNull(
+                deploymentMonitorDomainService,
+                "deploymentMonitorDomainService must not be null"
+        );
     }
 
     @Override
@@ -224,9 +264,12 @@ public final class ServiceRuntimeDomainService
             case UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.Success _ ->
                     switch (startContainerPort.start(command.serviceName())) {
                         case StartContainerPort.StartContainerResult.Success _ -> new StartServiceResult.Success();
-                        case StartContainerPort.StartContainerResult.MissingContainer _ -> new StartServiceResult.NotDeployed();
-                        case StartContainerPort.StartContainerResult.DuplicateManagedContainers _ -> new StartServiceResult.Drift();
-                        case StartContainerPort.StartContainerResult.Failure _ -> new StartServiceResult.DockerFailure();
+                        case StartContainerPort.StartContainerResult.MissingContainer _ ->
+                                new StartServiceResult.NotDeployed();
+                        case StartContainerPort.StartContainerResult.DuplicateManagedContainers _ ->
+                                new StartServiceResult.Drift();
+                        case StartContainerPort.StartContainerResult.Failure _ ->
+                                new StartServiceResult.DockerFailure();
                     };
             case UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.ServiceNotFound _ ->
                     new StartServiceResult.ServiceNotFound();
@@ -245,8 +288,10 @@ public final class ServiceRuntimeDomainService
             case UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.Success _ ->
                     switch (stopContainerPort.stop(command.serviceName())) {
                         case StopContainerPort.StopContainerResult.Success _ -> new StopServiceResult.Success();
-                        case StopContainerPort.StopContainerResult.MissingContainer _ -> new StopServiceResult.NotDeployed();
-                        case StopContainerPort.StopContainerResult.DuplicateManagedContainers _ -> new StopServiceResult.Drift();
+                        case StopContainerPort.StopContainerResult.MissingContainer _ ->
+                                new StopServiceResult.NotDeployed();
+                        case StopContainerPort.StopContainerResult.DuplicateManagedContainers _ ->
+                                new StopServiceResult.Drift();
                         case StopContainerPort.StopContainerResult.Failure _ -> new StopServiceResult.DockerFailure();
                     };
             case UpdateDesiredDeploymentStatePort.UpdateDesiredDeploymentStateResult.ServiceNotFound _ ->
@@ -321,7 +366,8 @@ public final class ServiceRuntimeDomainService
     private UninstallServiceResult uninstallWithoutDesiredDeployment(ServiceName serviceName) {
         return switch (removeContainerPort.remove(serviceName)) {
             case RemoveContainerPort.RemoveContainerResult.Success _ -> new UninstallServiceResult.Success();
-            case RemoveContainerPort.RemoveContainerResult.MissingContainer _ -> new UninstallServiceResult.NotDeployed();
+            case RemoveContainerPort.RemoveContainerResult.MissingContainer _ ->
+                    new UninstallServiceResult.NotDeployed();
             case RemoveContainerPort.RemoveContainerResult.DuplicateManagedContainers _ ->
                     new UninstallServiceResult.Drift();
             case RemoveContainerPort.RemoveContainerResult.Failure _ -> new UninstallServiceResult.DockerFailure();
@@ -366,7 +412,10 @@ public final class ServiceRuntimeDomainService
         return switch (upsertDesiredDeploymentPort.upsert(desiredDeployment)) {
             case UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success _ ->
                     switch (deployContainerPort.deploy(desiredDeployment, deploymentId)) {
-                        case DeployContainerPort.DeployContainerResult.Success _ -> new DeployServiceResult.Success();
+                        case DeployContainerPort.DeployContainerResult.Success _ -> {
+                            deploymentMonitorDomainService.monitorDeployment(desiredDeployment, deploymentId);
+                            yield new DeployServiceResult.Success();
+                        }
                         case DeployContainerPort.DeployContainerResult.Failure _ ->
                                 new DeployServiceResult.DockerFailure();
                     };
