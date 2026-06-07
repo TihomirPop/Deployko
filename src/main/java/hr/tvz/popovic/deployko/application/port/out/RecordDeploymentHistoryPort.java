@@ -1,7 +1,9 @@
 package hr.tvz.popovic.deployko.application.port.out;
 
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import java.util.Objects;
 
 public interface RecordDeploymentHistoryPort {
 
@@ -11,7 +13,11 @@ public interface RecordDeploymentHistoryPort {
             permits RecordDeploymentHistoryResult.Recorded, RecordDeploymentHistoryResult.ServiceNotFound,
             RecordDeploymentHistoryResult.Failure {
 
-        record Recorded() implements RecordDeploymentHistoryResult {
+        record Recorded(DeploymentId deploymentId) implements RecordDeploymentHistoryResult {
+
+            public Recorded {
+                Objects.requireNonNull(deploymentId, "deploymentId must not be null");
+            }
         }
 
         record ServiceNotFound() implements RecordDeploymentHistoryResult {

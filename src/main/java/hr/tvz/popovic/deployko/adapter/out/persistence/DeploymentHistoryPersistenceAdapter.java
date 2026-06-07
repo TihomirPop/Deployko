@@ -1,5 +1,6 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
@@ -36,13 +37,14 @@ public final class DeploymentHistoryPersistenceAdapter implements RecordDeployme
                 return new RecordDeploymentHistoryResult.ServiceNotFound();
             }
 
-            dsl
+            UUID deploymentId = dsl
                     .insertInto(SERVICE_DEPLOYMENT_HISTORY)
                     .set(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID, serviceId.get())
                     .set(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION, imageVersion.value())
-                    .execute();
+                    .returningResult(SERVICE_DEPLOYMENT_HISTORY.ID)
+                    .fetchSingle(SERVICE_DEPLOYMENT_HISTORY.ID);
 
-            return new RecordDeploymentHistoryResult.Recorded();
+            return new RecordDeploymentHistoryResult.Recorded(new DeploymentId(deploymentId));
         } catch (DataAccessException exception) {
             log.error("error while recording deployment history", exception);
             return new RecordDeploymentHistoryResult.Failure();

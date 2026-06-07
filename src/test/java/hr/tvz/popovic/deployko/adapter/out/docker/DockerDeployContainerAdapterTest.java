@@ -1,6 +1,7 @@
 package hr.tvz.popovic.deployko.adapter.out.docker;
 
 import com.github.dockerjava.api.exception.DockerException;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
@@ -19,12 +20,16 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DockerDeployContainerAdapterTest {
 
     private static final DesiredDeployment DESIRED_DEPLOYMENT = desiredDeployment();
+    private static final DeploymentId DEPLOYMENT_ID = new DeploymentId(
+            UUID.fromString("018f4b5d-9c64-7000-9f2e-4d8fbf9f1b22")
+    );
 
     private final FakeDockerDeploymentClient dockerDeploymentClient = new FakeDockerDeploymentClient();
     private final DockerDeployContainerAdapter adapter = new DockerDeployContainerAdapter(dockerDeploymentClient);
@@ -33,11 +38,12 @@ class DockerDeployContainerAdapterTest {
     void deploys_container_with_network_attachments_and_starts_it() {
         dockerDeploymentClient.createdContainerId = "container-1";
 
-        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
+        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT, DEPLOYMENT_ID);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Success.class);
         assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
         assertThat(dockerDeploymentClient.createdDesiredDeployment).isEqualTo(DESIRED_DEPLOYMENT);
+        assertThat(dockerDeploymentClient.createdDeploymentId).isEqualTo(DEPLOYMENT_ID);
         assertThat(dockerDeploymentClient.connectedNetworks)
                 .containsExactly("backend", "observability");
         assertThat(dockerDeploymentClient.startedContainerIds).containsExactly("container-1");
@@ -56,7 +62,7 @@ class DockerDeployContainerAdapterTest {
                 DESIRED_DEPLOYMENT.desiredState()
         );
 
-        DeployContainerPort.DeployContainerResult result = adapter.deploy(deployment);
+        DeployContainerPort.DeployContainerResult result = adapter.deploy(deployment, DEPLOYMENT_ID);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Success.class);
         assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(deployment);
@@ -68,7 +74,7 @@ class DockerDeployContainerAdapterTest {
     void returns_failure_when_existing_container_replacement_fails() {
         dockerDeploymentClient.replaceFailure = new DockerException("docker unavailable", 500);
 
-        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
+        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT, DEPLOYMENT_ID);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Failure.class);
         assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
@@ -82,7 +88,7 @@ class DockerDeployContainerAdapterTest {
     void returns_failure_when_container_creation_fails() {
         dockerDeploymentClient.createFailure = new DockerException("docker unavailable", 500);
 
-        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
+        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT, DEPLOYMENT_ID);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Failure.class);
         assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
@@ -95,7 +101,7 @@ class DockerDeployContainerAdapterTest {
         dockerDeploymentClient.createdContainerId = "container-1";
         dockerDeploymentClient.connectFailure = new DockerException("docker unavailable", 500);
 
-        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
+        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT, DEPLOYMENT_ID);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Failure.class);
         assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
@@ -108,7 +114,7 @@ class DockerDeployContainerAdapterTest {
         dockerDeploymentClient.createdContainerId = "container-1";
         dockerDeploymentClient.startFailure = new DockerException("docker unavailable", 500);
 
-        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT);
+        DeployContainerPort.DeployContainerResult result = adapter.deploy(DESIRED_DEPLOYMENT, DEPLOYMENT_ID);
 
         assertThat(result).isInstanceOf(DeployContainerPort.DeployContainerResult.Failure.class);
         assertThat(dockerDeploymentClient.replacedDesiredDeployments).containsExactly(DESIRED_DEPLOYMENT);
@@ -155,6 +161,7 @@ class DockerDeployContainerAdapterTest {
         private final List<DesiredDeployment> replacedDesiredDeployments = new ArrayList<>();
         private final List<String> operations = new ArrayList<>();
         private DesiredDeployment createdDesiredDeployment;
+        private DeploymentId createdDeploymentId;
         private String createdContainerId;
         private final List<String> connectedNetworks = new ArrayList<>();
         private final List<String> startedContainerIds = new ArrayList<>();
@@ -174,8 +181,9 @@ class DockerDeployContainerAdapterTest {
         }
 
         @Override
-        public String createContainer(DesiredDeployment desiredDeployment) {
+        public String createContainer(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
             this.createdDesiredDeployment = desiredDeployment;
+            this.createdDeploymentId = deploymentId;
             operations.add("create");
 
             if (createFailure != null) {

@@ -2,6 +2,7 @@ package hr.tvz.popovic.deployko.adapter.out.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.exception.DockerException;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
@@ -27,21 +28,22 @@ public class DockerDeployContainerAdapter implements DeployContainerPort {
     }
 
     @Override
-    public DeployContainerResult deploy(DesiredDeployment desiredDeployment) {
+    public DeployContainerResult deploy(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
         Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
+        Objects.requireNonNull(deploymentId, "deploymentId must not be null");
 
         try {
-            return deployContainer(desiredDeployment);
+            return deployContainer(desiredDeployment, deploymentId);
         } catch (DockerException e) {
             log.error("Exception occurred while trying to deploy docker container", e);
             return new DeployContainerResult.Failure();
         }
     }
 
-    private DeployContainerResult deployContainer(DesiredDeployment desiredDeployment) {
+    private DeployContainerResult deployContainer(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
         dockerDeploymentClient.removeContainer(desiredDeployment);
 
-        String containerId = dockerDeploymentClient.createContainer(desiredDeployment);
+        String containerId = dockerDeploymentClient.createContainer(desiredDeployment, deploymentId);
 
         for (NetworkAttachment networkAttachment : desiredDeployment.runtimeConfiguration().networkAttachments().asMap().values()) {
             dockerDeploymentClient.connectToNetwork(containerId, networkAttachment.networkName().value());

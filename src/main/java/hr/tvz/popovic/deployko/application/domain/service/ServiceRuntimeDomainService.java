@@ -1,6 +1,7 @@
 package hr.tvz.popovic.deployko.application.domain.service;
 
 import hr.tvz.popovic.deployko.application.domain.model.ActualDeploymentState;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
@@ -30,6 +31,7 @@ import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.Optional;
 
 public final class ServiceRuntimeDomainService
@@ -69,7 +71,9 @@ public final class ServiceRuntimeDomainService
                 stopContainerPort,
                 _ -> new RemoveContainerPort.RemoveContainerResult.Failure(),
                 _ -> new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure(),
-                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(),
+                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
+                        new DeploymentId(UUID.randomUUID())
+                ),
                 findActualDeploymentStatePort,
                 () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure()
         );
@@ -97,7 +101,9 @@ public final class ServiceRuntimeDomainService
                 stopContainerPort,
                 removeContainerPort,
                 deleteDesiredDeploymentPort,
-                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(),
+                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
+                        new DeploymentId(UUID.randomUUID())
+                ),
                 findActualDeploymentStatePort,
                 () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure()
         );
@@ -124,7 +130,9 @@ public final class ServiceRuntimeDomainService
                 stopContainerPort,
                 _ -> new RemoveContainerPort.RemoveContainerResult.Failure(),
                 _ -> new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure(),
-                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(),
+                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
+                        new DeploymentId(UUID.randomUUID())
+                ),
                 findActualDeploymentStatePort,
                 findServiceSummaryCandidatesPort
         );
@@ -334,8 +342,10 @@ public final class ServiceRuntimeDomainService
     }
 
     private DeployServiceResult deployFoundService(Service service, ImageVersion imageVersion) {
+        DeploymentId deploymentId;
         switch (recordDeploymentHistoryPort.recordDeployment(service.name(), imageVersion)) {
-            case RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded _ -> {
+            case RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded recorded -> {
+                deploymentId = recorded.deploymentId();
             }
             case RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.ServiceNotFound _ -> {
                 return new DeployServiceResult.ServiceNotFound();
@@ -355,7 +365,7 @@ public final class ServiceRuntimeDomainService
 
         return switch (upsertDesiredDeploymentPort.upsert(desiredDeployment)) {
             case UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success _ ->
-                    switch (deployContainerPort.deploy(desiredDeployment)) {
+                    switch (deployContainerPort.deploy(desiredDeployment, deploymentId)) {
                         case DeployContainerPort.DeployContainerResult.Success _ -> new DeployServiceResult.Success();
                         case DeployContainerPort.DeployContainerResult.Failure _ ->
                                 new DeployServiceResult.DockerFailure();

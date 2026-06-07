@@ -1,6 +1,7 @@
 package hr.tvz.popovic.deployko.application.domain.service;
 
 import hr.tvz.popovic.deployko.application.domain.model.ActualDeploymentState;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,6 +49,9 @@ class ServiceRuntimeDomainServiceTest {
 
     private static final Service SERVICE = service();
     private static final ImageVersion IMAGE_VERSION = new ImageVersion("1.0.0");
+    private static final DeploymentId DEPLOYMENT_ID = new DeploymentId(
+            UUID.fromString("018f4b5d-9c64-7000-9f2e-4d8fbf9f1b22")
+    );
 
     @Test
     void deploys_service_when_definition_exists_and_ports_succeed() {
@@ -57,7 +62,7 @@ class ServiceRuntimeDomainServiceTest {
                 new DeployContainerPort.DeployContainerResult.Success()
         );
         FakeRecordDeploymentHistoryPort recordDeploymentHistoryPort = new FakeRecordDeploymentHistoryPort(
-                new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded()
+                new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
         );
         ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
@@ -91,6 +96,7 @@ class ServiceRuntimeDomainServiceTest {
         ));
         assertThat(deployContainerPort.deployedDeployments)
                 .containsExactly(upsertDesiredDeploymentPort.upsertedDeployments.getFirst());
+        assertThat(deployContainerPort.deploymentIds).containsExactly(DEPLOYMENT_ID);
     }
 
     @Test
@@ -98,7 +104,7 @@ class ServiceRuntimeDomainServiceTest {
         List<String> events = new ArrayList<>();
         ServiceRuntimeDomainService service = serviceWithDeployPorts(
                 new FakeRecordDeploymentHistoryPort(
-                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(),
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID),
                         events
                 ),
                 new FakeUpsertDesiredDeploymentPort(
@@ -169,14 +175,14 @@ class ServiceRuntimeDomainServiceTest {
     @Test
     void returns_service_not_found_when_service_definition_is_missing() {
         FakeRecordDeploymentHistoryPort recordDeploymentHistoryPort = new FakeRecordDeploymentHistoryPort(
-                new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded()
+                new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
         );
         ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
                 successfulFindDesiredDeploymentStatePort(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 failingRemoveContainerPort(),
@@ -201,7 +207,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
                 successfulFindDesiredDeploymentStatePort(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 successfulFindActualDeploymentStatePort()
@@ -221,7 +227,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.ServiceNotFound(),
                 successfulUpdateStatePort(),
                 successfulFindDesiredDeploymentStatePort(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 successfulFindActualDeploymentStatePort()
@@ -241,7 +247,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Failure(),
                 successfulUpdateStatePort(),
                 successfulFindDesiredDeploymentStatePort(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 successfulFindActualDeploymentStatePort()
@@ -261,7 +267,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
                 successfulFindDesiredDeploymentStatePort(),
-                _ -> new DeployContainerPort.DeployContainerResult.Failure(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Failure(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 successfulFindActualDeploymentStatePort()
@@ -281,7 +287,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
                 successfulFindDesiredDeploymentStatePort(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 successfulFindActualDeploymentStatePort()
@@ -301,7 +307,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
                 successfulFindDesiredDeploymentStatePort(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 successfulFindActualDeploymentStatePort()
@@ -788,7 +794,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
                 findDesiredDeploymentStatePort,
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 findActualDeploymentStatePort
@@ -804,7 +810,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
                 successfulFindDesiredDeploymentStatePort(),
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 findActualDeploymentStatePort,
@@ -822,7 +828,7 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
                 successfulUpdateStatePort(),
                 findDesiredDeploymentStatePort,
-                _ -> new DeployContainerPort.DeployContainerResult.Success(),
+                (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
                 removeContainerPort,
@@ -875,6 +881,7 @@ class ServiceRuntimeDomainServiceTest {
         private final DeployContainerResult result;
         private final List<String> events;
         private final List<DesiredDeployment> deployedDeployments = new ArrayList<>();
+        private final List<DeploymentId> deploymentIds = new ArrayList<>();
 
         private FakeDeployContainerPort(DeployContainerResult result) {
             this(result, new ArrayList<>());
@@ -886,9 +893,10 @@ class ServiceRuntimeDomainServiceTest {
         }
 
         @Override
-        public DeployContainerResult deploy(DesiredDeployment desiredDeployment) {
+        public DeployContainerResult deploy(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
             events.add("deploy-container");
             deployedDeployments.add(desiredDeployment);
+            deploymentIds.add(deploymentId);
             return result;
         }
     }

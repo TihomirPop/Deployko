@@ -9,6 +9,7 @@ import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.RestartPolicy;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 
 import java.util.Objects;
@@ -38,15 +39,16 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
     }
 
     @Override
-    public String createContainer(DesiredDeployment desiredDeployment) {
+    public String createContainer(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
         Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
+        Objects.requireNonNull(deploymentId, "deploymentId must not be null");
 
         String image = DockerDeploymentMetadata.imageReference(desiredDeployment);
         ensureImageExists(image);
 
         CreateContainerCmd command = dockerClient.createContainerCmd(image)
                 .withName(DockerDeploymentMetadata.containerName(desiredDeployment))
-                .withLabels(DockerDeploymentMetadata.labels(desiredDeployment))
+                .withLabels(DockerDeploymentMetadata.labels(desiredDeployment, deploymentId))
                 .withEnv(DockerEnvironmentVariables.from(desiredDeployment.runtimeConfiguration().environmentVariables()))
                 .withHostConfig(
                         HostConfig.newHostConfig()

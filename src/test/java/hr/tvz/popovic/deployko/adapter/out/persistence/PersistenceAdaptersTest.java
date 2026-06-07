@@ -1165,11 +1165,14 @@ class PersistenceAdaptersTest {
                 deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
 
         assertThat(result).isInstanceOf(RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded.class);
+        RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded recorded =
+                (RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded) result;
         assertThat(dsl.fetchCount(SERVICE_DEPLOYMENT_HISTORY)).isEqualTo(1);
         UUID id = dsl
                 .select(SERVICE_DEPLOYMENT_HISTORY.ID)
                 .from(SERVICE_DEPLOYMENT_HISTORY)
                 .fetchSingle(SERVICE_DEPLOYMENT_HISTORY.ID);
+        assertThat(recorded.deploymentId().value()).isEqualTo(id);
         assertThat(id.version()).isEqualTo(7);
         assertThat(dsl.fetchExists(
                 dsl
