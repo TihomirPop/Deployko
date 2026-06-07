@@ -2,6 +2,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence;
 
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentAttempt;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
@@ -29,6 +30,7 @@ import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVari
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindLastCiDeploymentPort;
+import hr.tvz.popovic.deployko.application.port.out.FindLatestDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceEnvironmentVariablesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceNamesByImageRepositoryPort;
@@ -1219,6 +1221,53 @@ class PersistenceAdaptersTest {
 
         assertThat(result)
                 .isInstanceOf(UpdateDeploymentStatusPort.UpdateDeploymentStatusResult.DeploymentNotFound.class);
+    }
+
+    @Test
+    void find_latest_deployment_returns_latest_recorded_attempt() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        deploymentHistory.recordDeployment(service.name(), new ImageVersion("1.0.0"));
+        RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded latest =
+                (RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded)
+                        deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
+        deploymentHistory.updateStatus(latest.deploymentId(), DeploymentStatus.SUCCESS);
+
+        FindLatestDeploymentPort.FindLatestDeploymentResult result =
+                deploymentHistory.findLatestDeployment(service.name());
+
+        assertThat(result).isInstanceOf(FindLatestDeploymentPort.FindLatestDeploymentResult.Found.class);
+        FindLatestDeploymentPort.FindLatestDeploymentResult.Found found =
+                (FindLatestDeploymentPort.FindLatestDeploymentResult.Found) result;
+        assertThat(found.deploymentAttempt())
+                .usingRecursiveComparison()
+                .ignoringFields("recordedAt")
+                .isEqualTo(new DeploymentAttempt(
+                        latest.deploymentId(),
+                        new ImageVersion("2.0.0"),
+                        DeploymentStatus.SUCCESS,
+                        OffsetDateTime.parse("2026-06-07T10:15:30Z")
+                ));
+        assertThat(found.deploymentAttempt().recordedAt()).isNotNull();
+    }
+
+    @Test
+    void find_latest_deployment_returns_not_deployed_when_history_is_empty() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        FindLatestDeploymentPort.FindLatestDeploymentResult result =
+                deploymentHistory.findLatestDeployment(service.name());
+
+        assertThat(result).isInstanceOf(FindLatestDeploymentPort.FindLatestDeploymentResult.NotDeployed.class);
+    }
+
+    @Test
+    void find_latest_deployment_returns_service_not_found_when_service_does_not_exist() {
+        FindLatestDeploymentPort.FindLatestDeploymentResult result =
+                deploymentHistory.findLatestDeployment(new ServiceName("missing-api"));
+
+        assertThat(result).isInstanceOf(FindLatestDeploymentPort.FindLatestDeploymentResult.ServiceNotFound.class);
     }
 
     @Test

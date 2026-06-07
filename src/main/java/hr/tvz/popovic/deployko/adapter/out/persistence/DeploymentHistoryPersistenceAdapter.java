@@ -1,17 +1,21 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentAttempt;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.port.out.FindLatestDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDeploymentStatusPort;
 
+import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.jooq.DSLContext;
+import org.jooq.Record4;
 import org.jooq.exception.DataAccessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +24,8 @@ import org.springframework.stereotype.Component;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DEPLOYMENT_HISTORY;
 
 @Component
-public final class DeploymentHistoryPersistenceAdapter implements RecordDeploymentHistoryPort, UpdateDeploymentStatusPort {
+public final class DeploymentHistoryPersistenceAdapter
+        implements RecordDeploymentHistoryPort, UpdateDeploymentStatusPort, FindLatestDeploymentPort {
 
     private static final Logger log = LoggerFactory.getLogger(DeploymentHistoryPersistenceAdapter.class);
 
@@ -75,5 +80,49 @@ public final class DeploymentHistoryPersistenceAdapter implements RecordDeployme
             log.error("error while updating deployment status", exception);
             return new UpdateDeploymentStatusResult.Failure();
         }
+    }
+
+    @Override
+    public FindLatestDeploymentResult findLatestDeployment(ServiceName serviceName) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+
+        try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new FindLatestDeploymentResult.ServiceNotFound();
+            }
+
+            return dsl
+                    .select(
+                            SERVICE_DEPLOYMENT_HISTORY.ID,
+                            SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION,
+                            SERVICE_DEPLOYMENT_HISTORY.STATUS,
+                            SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT
+                    )
+                    .from(SERVICE_DEPLOYMENT_HISTORY)
+                    .where(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID.eq(serviceId.get()))
+                    .orderBy(
+                            SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT.desc(),
+                            SERVICE_DEPLOYMENT_HISTORY.ID.desc()
+                    )
+                    .limit(1)
+                    .fetchOptional()
+                    .<FindLatestDeploymentResult>map(DeploymentHistoryPersistenceAdapter::latestDeploymentFound)
+                    .orElseGet(FindLatestDeploymentResult.NotDeployed::new);
+        } catch (DataAccessException | IllegalArgumentException exception) {
+            log.error("error while finding latest deployment history", exception);
+            return new FindLatestDeploymentResult.Failure();
+        }
+    }
+
+    private static FindLatestDeploymentResult.Found latestDeploymentFound(
+            Record4<UUID, String, String, OffsetDateTime> record
+    ) {
+        return new FindLatestDeploymentResult.Found(new DeploymentAttempt(
+                new DeploymentId(record.value1()),
+                new ImageVersion(record.value2()),
+                DeploymentStatus.valueOf(record.value3()),
+                record.value4()
+        ));
     }
 }

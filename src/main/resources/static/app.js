@@ -208,11 +208,13 @@
         const serviceStatus = document.getElementById("service-status");
         const imageRepository = document.getElementById("image-repository");
         const deployedVersion = document.getElementById("deployed-version");
+        const latestDeployment = document.getElementById("latest-deployment");
         const runtimeStatus = document.getElementById("runtime-status");
         const environmentStatus = document.getElementById("environment-status");
         const portsStatus = document.getElementById("ports-status");
         const volumesStatus = document.getElementById("volumes-status");
         const networksStatus = document.getElementById("networks-status");
+        let latestDeploymentTimer;
 
         async function loadVersions(button, serviceName) {
             setBusy(button, true);
@@ -252,6 +254,7 @@
             }
 
             await postRuntime(button, serviceName, "/runtime/deploy", "Deployment requested.", { imageVersion });
+            await loadLatestDeployment();
         }
 
         async function postRuntime(button, serviceName, suffix, successMessage, body) {
@@ -312,14 +315,17 @@
         document.querySelector("[data-action='start']").addEventListener("click", async event => {
             await postRuntime(event.currentTarget, serviceName, "/runtime/start", "Service start requested.");
             await loadServiceSummary();
+            await loadLatestDeployment();
         });
         document.querySelector("[data-action='stop']").addEventListener("click", async event => {
             await postRuntime(event.currentTarget, serviceName, "/runtime/stop", "Service stop requested.");
             await loadServiceSummary();
+            await loadLatestDeployment();
         });
         document.querySelector("[data-action='uninstall']").addEventListener("click", async event => {
             await uninstallService(event.currentTarget, serviceName);
             await loadServiceSummary();
+            await loadLatestDeployment();
         });
         document.querySelector("[data-action='delete']").addEventListener("click", event => {
             deleteService(event.currentTarget, serviceName);
@@ -343,6 +349,7 @@
 
         async function loadConfiguration() {
             await loadServiceSummary();
+            await loadLatestDeployment();
             await Promise.all([
                 loadEnvironmentVariables(),
                 loadPortMappings(),
@@ -369,6 +376,48 @@
                 runtimeStatus.textContent = displayStatus(service.status);
             } catch (error) {
                 showStatus(serviceStatus, error.message, "error");
+            }
+        }
+
+        async function loadLatestDeployment() {
+            clearTimeout(latestDeploymentTimer);
+
+            try {
+                const deployment = await api(serviceUrl(serviceName, "/deployments/latest"));
+                renderLatestDeployment(deployment);
+                if (deployment && deployment.status === "IN_PROGRESS") {
+                    latestDeploymentTimer = setTimeout(loadLatestDeployment, 3000);
+                }
+            } catch (error) {
+                latestDeployment.textContent = error.message;
+            }
+        }
+
+        function renderLatestDeployment(deployment) {
+            if (!deployment) {
+                latestDeployment.textContent = "No deployment attempts";
+                return;
+            }
+
+            const version = deployment.imageVersion || "unknown version";
+            const recordedAt = deployment.recordedAt ? new Date(deployment.recordedAt).toLocaleString() : "";
+            const suffix = recordedAt ? ` at ${recordedAt}` : "";
+
+            switch (deployment.status) {
+                case "IN_PROGRESS":
+                    latestDeployment.textContent = `Deploying ${version}${suffix}`;
+                    return;
+                case "SUCCESS":
+                    latestDeployment.textContent = `Succeeded for ${version}${suffix}`;
+                    return;
+                case "FAILURE":
+                    latestDeployment.textContent = `Failed for ${version}${suffix}`;
+                    return;
+                case "CANCELED":
+                    latestDeployment.textContent = `Canceled for ${version}${suffix}`;
+                    return;
+                default:
+                    latestDeployment.textContent = `${displayStatus(deployment.status)} for ${version}${suffix}`;
             }
         }
 

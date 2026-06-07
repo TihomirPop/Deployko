@@ -331,6 +331,15 @@ DELETE {{host}}/services/{{serviceName}}/runtime-configuration/network-attachmen
 ### Get service versions
 GET {{host}}/services/{{serviceName}}/versions
 
+### Get latest deployment
+GET {{host}}/services/{{serviceName}}/deployments/latest
+
+### Get latest deployment missing service
+GET {{host}}/services/missing-service/deployments/latest
+
+### Get latest deployment invalid service
+GET {{host}}/services/Deployko Api/deployments/latest
+
 ### Deploy
 POST {{host}}/services/{{serviceName}}/runtime/deploy
 Content-Type: application/json
