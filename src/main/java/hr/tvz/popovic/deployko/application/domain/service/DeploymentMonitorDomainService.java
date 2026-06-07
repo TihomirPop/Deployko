@@ -136,6 +136,7 @@ public class DeploymentMonitorDomainService implements AutoCloseable {
 
     private void monitorUntilExpectedState(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
         int stableChecks = 0;
+        Integer lastRestartCount = null;
         while (stableChecks < requiredStableChecks) {
             if (Thread.currentThread().isInterrupted()) {
                 return;
@@ -162,9 +163,15 @@ public class DeploymentMonitorDomainService implements AutoCloseable {
 
             switch (findActualDeploymentStatePort.findActualState(desiredDeployment.serviceName())) {
                 case FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found found -> {
-                    stableChecks = isExpectedState(desiredDeployment.desiredState(), found.actualState())
-                            ? stableChecks + 1
-                            : 0;
+                    boolean restartCountChanged = lastRestartCount != null && found.restartCount() != lastRestartCount;
+                    lastRestartCount = found.restartCount();
+                    if (restartCountChanged) {
+                        stableChecks = 0;
+                    } else {
+                        stableChecks = isExpectedState(desiredDeployment.desiredState(), found.actualState())
+                                ? stableChecks + 1
+                                : 0;
+                    }
                 }
                 case FindActualDeploymentStatePort.FindActualDeploymentStateResult.DuplicateManagedContainers _,
                      FindActualDeploymentStatePort.FindActualDeploymentStateResult.Failure _ -> {

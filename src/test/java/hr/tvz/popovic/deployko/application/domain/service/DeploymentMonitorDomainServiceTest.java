@@ -112,6 +112,75 @@ class DeploymentMonitorDomainServiceTest {
     }
 
     @Test
+    void resets_running_counter_when_restart_count_changes() throws InterruptedException {
+        RecordingUpdateDeploymentStatusPort updateDeploymentStatusPort = new RecordingUpdateDeploymentStatusPort();
+        List<FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found> states = new ArrayList<>(List.of(
+                new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                        ActualDeploymentState.RUNNING,
+                        0
+                ),
+                new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                        ActualDeploymentState.RUNNING,
+                        1
+                ),
+                new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                        ActualDeploymentState.RUNNING,
+                        1
+                ),
+                new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                        ActualDeploymentState.RUNNING,
+                        1
+                )
+        ));
+        try (var executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+            DeploymentMonitorDomainService monitor = new DeploymentMonitorDomainService(
+                    _ -> states.removeFirst(),
+                    currentDesiredStatePort(DesiredDeploymentState.RUNNING),
+                    updateDeploymentStatusPort,
+                    executorService,
+                    Duration.ofSeconds(1),
+                    Duration.ZERO,
+                    2,
+                    false
+            );
+
+            monitor.monitorDeployment(desiredDeployment(DesiredDeploymentState.RUNNING), DEPLOYMENT_ID);
+
+            assertThat(updateDeploymentStatusPort.awaitStatus()).isTrue();
+            assertThat(states).isEmpty();
+            assertThat(updateDeploymentStatusPort.records)
+                    .containsExactly(new DeploymentStatusRecord(DEPLOYMENT_ID, DeploymentStatus.SUCCESS));
+        }
+    }
+
+    @Test
+    void times_out_when_restart_count_keeps_changing() throws InterruptedException {
+        RecordingUpdateDeploymentStatusPort updateDeploymentStatusPort = new RecordingUpdateDeploymentStatusPort();
+        int[] restartCount = {0};
+        try (var executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+            DeploymentMonitorDomainService monitor = new DeploymentMonitorDomainService(
+                    _ -> new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
+                            ActualDeploymentState.RUNNING,
+                            restartCount[0]++
+                    ),
+                    currentDesiredStatePort(DesiredDeploymentState.RUNNING),
+                    updateDeploymentStatusPort,
+                    executorService,
+                    Duration.ofMillis(30),
+                    Duration.ofMillis(5),
+                    2,
+                    false
+            );
+
+            monitor.monitorDeployment(desiredDeployment(DesiredDeploymentState.RUNNING), DEPLOYMENT_ID);
+
+            assertThat(updateDeploymentStatusPort.awaitStatus()).isTrue();
+            assertThat(updateDeploymentStatusPort.records)
+                    .containsExactly(new DeploymentStatusRecord(DEPLOYMENT_ID, DeploymentStatus.FAILURE));
+        }
+    }
+
+    @Test
     void marks_deployment_failure_when_monitor_times_out() throws InterruptedException {
         RecordingUpdateDeploymentStatusPort updateDeploymentStatusPort = new RecordingUpdateDeploymentStatusPort();
         try (var executorService = Executors.newVirtualThreadPerTaskExecutor()) {

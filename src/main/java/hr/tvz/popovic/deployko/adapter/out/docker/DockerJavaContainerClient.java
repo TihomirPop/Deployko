@@ -30,6 +30,18 @@ class DockerJavaContainerClient implements DockerContainerClient {
     }
 
     @Override
+    public int restartCount(String containerId) {
+        Objects.requireNonNull(containerId, "containerId must not be null");
+
+        Integer restartCount = dockerClient
+                .inspectContainerCmd(containerId)
+                .exec()
+                .getRestartCount();
+
+        return restartCount == null ? 0 : restartCount;
+    }
+
+    @Override
     public void startContainer(String containerId) {
         Objects.requireNonNull(containerId, "containerId must not be null");
 

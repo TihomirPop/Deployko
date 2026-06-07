@@ -35,7 +35,10 @@ public class DockerFindActualDeploymentStateAdapter implements FindActualDeploym
                     dockerContainerClient.listManagedContainers(serviceName)
             )) {
                 case DockerManagedContainerSelector.ManagedContainerSelection.Found found ->
-                        new FindActualDeploymentStateResult.Found(actualState(found.container()));
+                        new FindActualDeploymentStateResult.Found(
+                                actualState(found.container()),
+                                dockerContainerClient.restartCount(found.container().getId())
+                        );
                 case DockerManagedContainerSelector.ManagedContainerSelection.Missing _ ->
                         new FindActualDeploymentStateResult.Found(ActualDeploymentState.MISSING);
                 case DockerManagedContainerSelector.ManagedContainerSelection.Duplicate _ ->

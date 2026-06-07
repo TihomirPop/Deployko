@@ -22,11 +22,13 @@ class DockerFindActualDeploymentStateAdapterTest {
     @Test
     void returns_running_when_single_managed_container_is_running() {
         dockerContainerClient.containers = List.of(container("container-1", "running"));
+        dockerContainerClient.restartCounts = java.util.Map.of("container-1", 3);
 
         FindActualDeploymentStatePort.FindActualDeploymentStateResult result = adapter.findActualState(SERVICE_NAME);
 
         assertThat(result).isEqualTo(new FindActualDeploymentStatePort.FindActualDeploymentStateResult.Found(
-                ActualDeploymentState.RUNNING
+                ActualDeploymentState.RUNNING,
+                3
         ));
     }
 
@@ -84,6 +86,7 @@ class DockerFindActualDeploymentStateAdapterTest {
     private static final class FakeDockerContainerClient implements DockerContainerClient {
 
         private List<Container> containers = List.of();
+        private java.util.Map<String, Integer> restartCounts = java.util.Map.of();
         private DockerException listFailure;
 
         @Override
@@ -95,6 +98,11 @@ class DockerFindActualDeploymentStateAdapterTest {
             }
 
             return containers;
+        }
+
+        @Override
+        public int restartCount(String containerId) {
+            return restartCounts.getOrDefault(containerId, 0);
         }
 
         @Override

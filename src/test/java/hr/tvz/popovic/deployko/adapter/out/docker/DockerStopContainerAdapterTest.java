@@ -93,6 +93,11 @@ class DockerStopContainerAdapterTest {
         }
 
         @Override
+        public int restartCount(String containerId) {
+            return 0;
+        }
+
+        @Override
         public void startContainer(String containerId) {
         }
 

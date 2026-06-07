@@ -9,6 +9,8 @@ interface DockerContainerClient {
 
     List<Container> listManagedContainers(ServiceName serviceName);
 
+    int restartCount(String containerId);
+
     void startContainer(String containerId);
 
     void stopContainer(String containerId);
