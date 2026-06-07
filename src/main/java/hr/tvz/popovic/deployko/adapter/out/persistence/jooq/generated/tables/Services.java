@@ -7,6 +7,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Keys;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Public;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceCiDeployments.ServiceCiDeploymentsPath;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDeploymentHistory.ServiceDeploymentHistoryPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeployments.ServiceDesiredDeploymentsPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceEnvironmentVariables.ServiceEnvironmentVariablesPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceNetworkAttachments.ServiceNetworkAttachmentsPath;
@@ -176,6 +177,19 @@ public class Services extends TableImpl<ServicesRecord> {
             _serviceCiDeployments = new ServiceCiDeploymentsPath(this, null, Keys.SERVICE_CI_DEPLOYMENTS__SERVICE_CI_DEPLOYMENTS_SERVICE_ID_FKEY.getInverseKey());
 
         return _serviceCiDeployments;
+    }
+
+    private transient ServiceDeploymentHistoryPath _serviceDeploymentHistory;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.service_deployment_history</code> table
+     */
+    public ServiceDeploymentHistoryPath serviceDeploymentHistory() {
+        if (_serviceDeploymentHistory == null)
+            _serviceDeploymentHistory = new ServiceDeploymentHistoryPath(this, null, Keys.SERVICE_DEPLOYMENT_HISTORY__SERVICE_DEPLOYMENT_HISTORY_SERVICE_ID_FKEY.getInverseKey());
+
+        return _serviceDeploymentHistory;
     }
 
     private transient ServiceDesiredDeploymentsPath _serviceDesiredDeployments;

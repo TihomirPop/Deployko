@@ -29,6 +29,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePor
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
+import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
@@ -55,6 +56,9 @@ class ServiceRuntimeDomainServiceTest {
         FakeDeployContainerPort deployContainerPort = new FakeDeployContainerPort(
                 new DeployContainerPort.DeployContainerResult.Success()
         );
+        FakeRecordDeploymentHistoryPort recordDeploymentHistoryPort = new FakeRecordDeploymentHistoryPort(
+                new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded()
+        );
         ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 upsertDesiredDeploymentPort,
@@ -63,7 +67,11 @@ class ServiceRuntimeDomainServiceTest {
                 deployContainerPort,
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                successfulFindActualDeploymentStatePort()
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                recordDeploymentHistoryPort,
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -71,6 +79,8 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.Success.class);
+        assertThat(recordDeploymentHistoryPort.records)
+                .containsExactly(new DeploymentHistoryRecord(SERVICE.name(), IMAGE_VERSION));
         assertThat(upsertDesiredDeploymentPort.upsertedDeployments).hasSize(1);
         assertThat(upsertDesiredDeploymentPort.upsertedDeployments.getFirst()).isEqualTo(new DesiredDeployment(
                 SERVICE.name(),
@@ -84,7 +94,83 @@ class ServiceRuntimeDomainServiceTest {
     }
 
     @Test
+    void records_deployment_history_before_upserting_desired_state_and_deploying_container() {
+        List<String> events = new ArrayList<>();
+        ServiceRuntimeDomainService service = serviceWithDeployPorts(
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(),
+                        events
+                ),
+                new FakeUpsertDesiredDeploymentPort(
+                        new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
+                        events
+                ),
+                new FakeDeployContainerPort(new DeployContainerPort.DeployContainerResult.Success(), events)
+        );
+
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        );
+
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.Success.class);
+        assertThat(events).containsExactly("record-history", "upsert-desired-state", "deploy-container");
+    }
+
+    @Test
+    void returns_desired_state_failure_when_deployment_history_recording_fails() {
+        FakeUpsertDesiredDeploymentPort upsertDesiredDeploymentPort = new FakeUpsertDesiredDeploymentPort(
+                new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success()
+        );
+        FakeDeployContainerPort deployContainerPort = new FakeDeployContainerPort(
+                new DeployContainerPort.DeployContainerResult.Success()
+        );
+        ServiceRuntimeDomainService service = serviceWithDeployPorts(
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Failure()
+                ),
+                upsertDesiredDeploymentPort,
+                deployContainerPort
+        );
+
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        );
+
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.DesiredStateFailure.class);
+        assertThat(upsertDesiredDeploymentPort.upsertedDeployments).isEmpty();
+        assertThat(deployContainerPort.deployedDeployments).isEmpty();
+    }
+
+    @Test
+    void returns_service_not_found_when_deployment_history_recording_reports_missing_service() {
+        FakeUpsertDesiredDeploymentPort upsertDesiredDeploymentPort = new FakeUpsertDesiredDeploymentPort(
+                new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success()
+        );
+        FakeDeployContainerPort deployContainerPort = new FakeDeployContainerPort(
+                new DeployContainerPort.DeployContainerResult.Success()
+        );
+        ServiceRuntimeDomainService service = serviceWithDeployPorts(
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.ServiceNotFound()
+                ),
+                upsertDesiredDeploymentPort,
+                deployContainerPort
+        );
+
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        );
+
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.ServiceNotFound.class);
+        assertThat(upsertDesiredDeploymentPort.upsertedDeployments).isEmpty();
+        assertThat(deployContainerPort.deployedDeployments).isEmpty();
+    }
+
+    @Test
     void returns_service_not_found_when_service_definition_is_missing() {
+        FakeRecordDeploymentHistoryPort recordDeploymentHistoryPort = new FakeRecordDeploymentHistoryPort(
+                new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded()
+        );
         ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.NotFound(),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
@@ -93,7 +179,11 @@ class ServiceRuntimeDomainServiceTest {
                 _ -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                successfulFindActualDeploymentStatePort()
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                recordDeploymentHistoryPort,
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -101,6 +191,7 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.ServiceNotFound.class);
+        assertThat(recordDeploymentHistoryPort.records).isEmpty();
     }
 
     @Test
@@ -655,6 +746,39 @@ class ServiceRuntimeDomainServiceTest {
         );
     }
 
+    private static RemoveContainerPort failingRemoveContainerPort() {
+        return _ -> new RemoveContainerPort.RemoveContainerResult.Failure();
+    }
+
+    private static DeleteDesiredDeploymentPort failingDeleteDesiredDeploymentPort() {
+        return _ -> new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure();
+    }
+
+    private static FindServiceSummaryCandidatesPort failingFindServiceSummaryCandidatesPort() {
+        return () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure();
+    }
+
+    private static ServiceRuntimeDomainService serviceWithDeployPorts(
+            RecordDeploymentHistoryPort recordDeploymentHistoryPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            DeployContainerPort deployContainerPort
+    ) {
+        return new ServiceRuntimeDomainService(
+                _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
+                upsertDesiredDeploymentPort,
+                successfulUpdateStatePort(),
+                successfulFindDesiredDeploymentStatePort(),
+                deployContainerPort,
+                successfulStartContainerPort(),
+                successfulStopContainerPort(),
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                recordDeploymentHistoryPort,
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort()
+        );
+    }
+
     private static ServiceRuntimeDomainService serviceWithStatusPorts(
             FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
             FindActualDeploymentStatePort findActualDeploymentStatePort
@@ -720,17 +844,27 @@ class ServiceRuntimeDomainServiceTest {
     ) {
     }
 
+    private record DeploymentHistoryRecord(ServiceName serviceName, ImageVersion imageVersion) {
+    }
+
     private static final class FakeUpsertDesiredDeploymentPort implements UpsertDesiredDeploymentPort {
 
         private final UpsertDesiredDeploymentResult result;
+        private final List<String> events;
         private final List<DesiredDeployment> upsertedDeployments = new ArrayList<>();
 
         private FakeUpsertDesiredDeploymentPort(UpsertDesiredDeploymentResult result) {
+            this(result, new ArrayList<>());
+        }
+
+        private FakeUpsertDesiredDeploymentPort(UpsertDesiredDeploymentResult result, List<String> events) {
             this.result = result;
+            this.events = events;
         }
 
         @Override
         public UpsertDesiredDeploymentResult upsert(DesiredDeployment desiredDeployment) {
+            events.add("upsert-desired-state");
             upsertedDeployments.add(desiredDeployment);
             return result;
         }
@@ -739,15 +873,45 @@ class ServiceRuntimeDomainServiceTest {
     private static final class FakeDeployContainerPort implements DeployContainerPort {
 
         private final DeployContainerResult result;
+        private final List<String> events;
         private final List<DesiredDeployment> deployedDeployments = new ArrayList<>();
 
         private FakeDeployContainerPort(DeployContainerResult result) {
+            this(result, new ArrayList<>());
+        }
+
+        private FakeDeployContainerPort(DeployContainerResult result, List<String> events) {
             this.result = result;
+            this.events = events;
         }
 
         @Override
         public DeployContainerResult deploy(DesiredDeployment desiredDeployment) {
+            events.add("deploy-container");
             deployedDeployments.add(desiredDeployment);
+            return result;
+        }
+    }
+
+    private static final class FakeRecordDeploymentHistoryPort implements RecordDeploymentHistoryPort {
+
+        private final RecordDeploymentHistoryResult result;
+        private final List<String> events;
+        private final List<DeploymentHistoryRecord> records = new ArrayList<>();
+
+        private FakeRecordDeploymentHistoryPort(RecordDeploymentHistoryResult result) {
+            this(result, new ArrayList<>());
+        }
+
+        private FakeRecordDeploymentHistoryPort(RecordDeploymentHistoryResult result, List<String> events) {
+            this.result = result;
+            this.events = events;
+        }
+
+        @Override
+        public RecordDeploymentHistoryResult recordDeployment(ServiceName serviceName, ImageVersion imageVersion) {
+            events.add("record-history");
+            records.add(new DeploymentHistoryRecord(serviceName, imageVersion));
             return result;
         }
     }

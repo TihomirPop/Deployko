@@ -35,6 +35,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindServicePortMappingsPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceVolumeMountsPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordCiDeploymentPort;
+import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateServiceVolumeMountPort;
@@ -50,8 +51,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_CI_DEPLOYMENTS;
+import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DEPLOYMENT_HISTORY;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENTS;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_ENVIRONMENT_VARIABLES;
 import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tables.SERVICE_DESIRED_DEPLOYMENT_NETWORK_ATTACHMENTS;
@@ -77,6 +80,7 @@ class PersistenceAdaptersTest {
     private static ServiceDefinitionPersistenceAdapter serviceDefinitions;
     private static DesiredDeploymentPersistenceAdapter desiredDeployments;
     private static CiDeploymentPersistenceAdapter ciDeployments;
+    private static DeploymentHistoryPersistenceAdapter deploymentHistory;
     private static ServiceEnvironmentVariablePersistenceAdapter environmentVariables;
     private static ServicePortMappingPersistenceAdapter portMappings;
     private static ServiceVolumeMountPersistenceAdapter volumeMounts;
@@ -95,6 +99,7 @@ class PersistenceAdaptersTest {
         serviceDefinitions = new ServiceDefinitionPersistenceAdapter(dsl, transactions);
         desiredDeployments = new DesiredDeploymentPersistenceAdapter(dsl, transactions);
         ciDeployments = new CiDeploymentPersistenceAdapter(dsl);
+        deploymentHistory = new DeploymentHistoryPersistenceAdapter(dsl);
         environmentVariables = new ServiceEnvironmentVariablePersistenceAdapter(dsl, transactions);
         portMappings = new ServicePortMappingPersistenceAdapter(dsl, transactions);
         volumeMounts = new ServiceVolumeMountPersistenceAdapter(dsl, transactions);
@@ -1149,6 +1154,55 @@ class PersistenceAdaptersTest {
 
         assertThat(findResult).isInstanceOf(FindLastCiDeploymentPort.FindLastCiDeploymentResult.ServiceNotFound.class);
         assertThat(recordResult).isInstanceOf(RecordCiDeploymentPort.RecordCiDeploymentResult.ServiceNotFound.class);
+    }
+
+    @Test
+    void record_deployment_history_inserts_uuid_v7_attempt_for_service_and_version() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        RecordDeploymentHistoryPort.RecordDeploymentHistoryResult result =
+                deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
+
+        assertThat(result).isInstanceOf(RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded.class);
+        assertThat(dsl.fetchCount(SERVICE_DEPLOYMENT_HISTORY)).isEqualTo(1);
+        UUID id = dsl
+                .select(SERVICE_DEPLOYMENT_HISTORY.ID)
+                .from(SERVICE_DEPLOYMENT_HISTORY)
+                .fetchSingle(SERVICE_DEPLOYMENT_HISTORY.ID);
+        assertThat(id.version()).isEqualTo(7);
+        assertThat(dsl.fetchExists(
+                dsl
+                        .selectOne()
+                        .from(SERVICE_DEPLOYMENT_HISTORY)
+                        .join(SERVICES)
+                        .on(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID.eq(SERVICES.ID))
+                        .where(SERVICES.NAME.eq("billing-api"))
+                        .and(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION.eq("2.0.0"))
+                        .and(SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT.isNotNull())
+        )).isTrue();
+    }
+
+    @Test
+    void record_deployment_history_returns_service_not_found_when_service_does_not_exist() {
+        RecordDeploymentHistoryPort.RecordDeploymentHistoryResult result =
+                deploymentHistory.recordDeployment(new ServiceName("missing-api"), new ImageVersion("2.0.0"));
+
+        assertThat(result)
+                .isInstanceOf(RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.ServiceNotFound.class);
+        assertThat(dsl.fetchCount(SERVICE_DEPLOYMENT_HISTORY)).isZero();
+    }
+
+    @Test
+    void delete_by_name_cascades_deployment_history() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
+
+        DeleteServiceByNamePort.DeleteServiceByNameResult result = serviceDefinitions.deleteByName(service.name());
+
+        assertThat(result).isInstanceOf(DeleteServiceByNamePort.DeleteServiceByNameResult.Deleted.class);
+        assertThat(dsl.fetchCount(SERVICE_DEPLOYMENT_HISTORY)).isZero();
     }
 
     @Test

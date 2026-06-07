@@ -5,6 +5,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated;
 
 
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceCiDeployments;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDeploymentHistory;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentEnvironmentVariables;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentNetworkAttachments;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentPortMappings;
@@ -27,6 +28,11 @@ public class Tables {
      * The table <code>public.service_ci_deployments</code>.
      */
     public static final ServiceCiDeployments SERVICE_CI_DEPLOYMENTS = ServiceCiDeployments.SERVICE_CI_DEPLOYMENTS;
+
+    /**
+     * The table <code>public.service_deployment_history</code>.
+     */
+    public static final ServiceDeploymentHistory SERVICE_DEPLOYMENT_HISTORY = ServiceDeploymentHistory.SERVICE_DEPLOYMENT_HISTORY;
 
     /**
      * The table
