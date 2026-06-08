@@ -77,9 +77,11 @@ class ServiceRuntimeDomainServiceTest {
                 successfulStopContainerPort(),
                 failingRemoveContainerPort(),
                 failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
                 recordDeploymentHistoryPort,
                 successfulFindActualDeploymentStatePort(),
-                failingFindServiceSummaryCandidatesPort()
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -189,7 +191,7 @@ class ServiceRuntimeDomainServiceTest {
 
     @Test
     void starts_deployment_monitor_after_container_deployment_succeeds() {
-        RecordingDeploymentMonitorDomainService deploymentMonitorDomainService = new RecordingDeploymentMonitorDomainService();
+        RecordingDeploymentMonitor deploymentMonitor = new RecordingDeploymentMonitor();
         ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 new FakeUpsertDesiredDeploymentPort(new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success()),
@@ -200,12 +202,13 @@ class ServiceRuntimeDomainServiceTest {
                 successfulStopContainerPort(),
                 failingRemoveContainerPort(),
                 failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
                 new FakeRecordDeploymentHistoryPort(
                         new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
                 ),
                 successfulFindActualDeploymentStatePort(),
                 failingFindServiceSummaryCandidatesPort(),
-                deploymentMonitorDomainService
+                deploymentMonitor
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -213,7 +216,7 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.Success.class);
-        assertThat(deploymentMonitorDomainService.records)
+        assertThat(deploymentMonitor.records)
                 .containsExactly(new DeploymentMonitorRecord(
                         new DesiredDeployment(
                                 SERVICE.name(),
@@ -291,9 +294,11 @@ class ServiceRuntimeDomainServiceTest {
                 successfulStopContainerPort(),
                 failingRemoveContainerPort(),
                 failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
                 recordDeploymentHistoryPort,
                 successfulFindActualDeploymentStatePort(),
-                failingFindServiceSummaryCandidatesPort()
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -314,7 +319,15 @@ class ServiceRuntimeDomainServiceTest {
                 (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                successfulFindActualDeploymentStatePort()
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -334,7 +347,15 @@ class ServiceRuntimeDomainServiceTest {
                 (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                successfulFindActualDeploymentStatePort()
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -354,7 +375,15 @@ class ServiceRuntimeDomainServiceTest {
                 (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                successfulFindActualDeploymentStatePort()
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -365,8 +394,8 @@ class ServiceRuntimeDomainServiceTest {
     }
 
     @Test
-    void returns_docker_failure_when_deploy_port_fails() {
-        RecordingDeploymentMonitorDomainService deploymentMonitorDomainService = new RecordingDeploymentMonitorDomainService();
+    void returns_docker_failure_without_monitoring_when_deploy_port_fails() {
+        RecordingDeploymentMonitor deploymentMonitor = new RecordingDeploymentMonitor();
         ServiceRuntimeDomainService service = new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 _ -> new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success(),
@@ -377,12 +406,13 @@ class ServiceRuntimeDomainServiceTest {
                 successfulStopContainerPort(),
                 failingRemoveContainerPort(),
                 failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
                 new FakeRecordDeploymentHistoryPort(
                         new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
                 ),
                 successfulFindActualDeploymentStatePort(),
                 failingFindServiceSummaryCandidatesPort(),
-                deploymentMonitorDomainService
+                deploymentMonitor
         );
 
         DeployServiceUseCase.DeployServiceResult result = service.deployService(
@@ -390,17 +420,7 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.DockerFailure.class);
-        assertThat(deploymentMonitorDomainService.records)
-                .containsExactly(new DeploymentMonitorRecord(
-                        new DesiredDeployment(
-                                SERVICE.name(),
-                                SERVICE.imageRepository(),
-                                IMAGE_VERSION,
-                                SERVICE.runtimeConfiguration(),
-                                DesiredDeploymentState.RUNNING
-                        ),
-                        DEPLOYMENT_ID
-                ));
+        assertThat(deploymentMonitor.records).isEmpty();
     }
 
     @Test
@@ -413,7 +433,15 @@ class ServiceRuntimeDomainServiceTest {
                 (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                successfulFindActualDeploymentStatePort()
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
 
         StartServiceUseCase.StartServiceResult result = service.startService(
@@ -433,7 +461,15 @@ class ServiceRuntimeDomainServiceTest {
                 (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                successfulFindActualDeploymentStatePort()
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
 
         StopServiceUseCase.StopServiceResult result = service.stopService(
@@ -875,6 +911,10 @@ class ServiceRuntimeDomainServiceTest {
         );
     }
 
+    private static ResolveDeploymentImagePort successfulResolveDeploymentImagePort() {
+        return (_, _) -> new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(new ImageCommitSha.Unknown());
+    }
+
     private static RemoveContainerPort failingRemoveContainerPort() {
         return _ -> new RemoveContainerPort.RemoveContainerResult.Failure();
     }
@@ -885,6 +925,11 @@ class ServiceRuntimeDomainServiceTest {
 
     private static FindServiceSummaryCandidatesPort failingFindServiceSummaryCandidatesPort() {
         return () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure();
+    }
+
+    private static DeploymentMonitor noopDeploymentMonitor() {
+        return (_, _) -> {
+        };
     }
 
     private static ServiceRuntimeDomainService serviceWithDeployPorts(
@@ -921,7 +966,8 @@ class ServiceRuntimeDomainServiceTest {
                 resolveDeploymentImagePort,
                 recordDeploymentHistoryPort,
                 successfulFindActualDeploymentStatePort(),
-                failingFindServiceSummaryCandidatesPort()
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
     }
 
@@ -937,7 +983,15 @@ class ServiceRuntimeDomainServiceTest {
                 (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
-                findActualDeploymentStatePort
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                findActualDeploymentStatePort,
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
     }
 
@@ -953,8 +1007,15 @@ class ServiceRuntimeDomainServiceTest {
                 (_, _) -> new DeployContainerPort.DeployContainerResult.Success(),
                 successfulStartContainerPort(),
                 successfulStopContainerPort(),
+                failingRemoveContainerPort(),
+                failingDeleteDesiredDeploymentPort(),
+                successfulResolveDeploymentImagePort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
                 findActualDeploymentStatePort,
-                findServiceSummaryCandidatesPort
+                findServiceSummaryCandidatesPort,
+                noopDeploymentMonitor()
         );
     }
 
@@ -973,7 +1034,13 @@ class ServiceRuntimeDomainServiceTest {
                 successfulStopContainerPort(),
                 removeContainerPort,
                 deleteDesiredDeploymentPort,
-                successfulFindActualDeploymentStatePort()
+                successfulResolveDeploymentImagePort(),
+                new FakeRecordDeploymentHistoryPort(
+                        new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+                ),
+                successfulFindActualDeploymentStatePort(),
+                failingFindServiceSummaryCandidatesPort(),
+                noopDeploymentMonitor()
         );
     }
 
@@ -990,7 +1057,8 @@ class ServiceRuntimeDomainServiceTest {
     ) {
     }
 
-    private record DeploymentHistoryRecord(ServiceName serviceName, ImageVersion imageVersion, ImageCommitSha commitSha) {
+    private record DeploymentHistoryRecord(ServiceName serviceName, ImageVersion imageVersion,
+                                           ImageCommitSha commitSha) {
     }
 
     private record DeploymentMonitorRecord(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
@@ -1095,7 +1163,7 @@ class ServiceRuntimeDomainServiceTest {
         }
     }
 
-    private static final class RecordingDeploymentMonitorDomainService extends DeploymentMonitorDomainService {
+    private static final class RecordingDeploymentMonitor implements DeploymentMonitor {
 
         private final List<DeploymentMonitorRecord> records = new ArrayList<>();
 

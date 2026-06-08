@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.adapter.out.registry;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.port.out.FindImageVersionsPort;
+import io.github.ya_b.registry.client.RegistryClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,26 +14,12 @@ public final class RegistryFindImageVersionsAdapter implements FindImageVersions
 
     private static final Logger log = LoggerFactory.getLogger(RegistryFindImageVersionsAdapter.class);
 
-    private final RegistryImageVersionClient registryImageVersionClient;
-
-    public RegistryFindImageVersionsAdapter() {
-        this(new RegistryClientImageVersionClient());
-    }
-
-    RegistryFindImageVersionsAdapter(RegistryImageVersionClient registryImageVersionClient) {
-        this.registryImageVersionClient = Objects.requireNonNull(
-                registryImageVersionClient,
-                "registryImageVersionClient must not be null"
-        );
-    }
-
     @Override
     public FindImageVersionsResult findImageVersions(ImageRepository imageRepository) {
         Objects.requireNonNull(imageRepository, "imageRepository must not be null");
 
         try {
-            return new FindImageVersionsResult.Found(registryImageVersionClient
-                    .tags(imageRepository.value())
+            return new FindImageVersionsResult.Found(RegistryClient.tags(imageRepository.value())
                     .stream()
                     .map(ImageVersion::new)
                     .toList());

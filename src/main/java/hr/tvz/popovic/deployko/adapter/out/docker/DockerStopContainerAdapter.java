@@ -9,17 +9,10 @@ import java.util.Objects;
 
 public class DockerStopContainerAdapter implements StopContainerPort {
 
-    private final DockerContainerClient dockerContainerClient;
+    private final DockerJavaContainerClient dockerContainerClient;
 
     public DockerStopContainerAdapter(DockerClient dockerClient) {
-        this(new DockerJavaContainerClient(dockerClient));
-    }
-
-    DockerStopContainerAdapter(DockerContainerClient dockerContainerClient) {
-        this.dockerContainerClient = Objects.requireNonNull(
-                dockerContainerClient,
-                "dockerContainerClient must not be null"
-        );
+        this.dockerContainerClient = new DockerJavaContainerClient(dockerClient);
     }
 
     @Override

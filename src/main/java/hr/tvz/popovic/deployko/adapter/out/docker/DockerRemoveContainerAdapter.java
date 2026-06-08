@@ -9,17 +9,10 @@ import java.util.Objects;
 
 public class DockerRemoveContainerAdapter implements RemoveContainerPort {
 
-    private final DockerContainerClient dockerContainerClient;
+    private final DockerJavaContainerClient dockerContainerClient;
 
     public DockerRemoveContainerAdapter(DockerClient dockerClient) {
-        this(new DockerJavaContainerClient(dockerClient));
-    }
-
-    DockerRemoveContainerAdapter(DockerContainerClient dockerContainerClient) {
-        this.dockerContainerClient = Objects.requireNonNull(
-                dockerContainerClient,
-                "dockerContainerClient must not be null"
-        );
+        this.dockerContainerClient = new DockerJavaContainerClient(dockerClient);
     }
 
     @Override

@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-final class DockerJavaImageClient implements DockerImageClient {
+final class DockerJavaImageClient {
 
     private final DockerClient dockerClient;
 
@@ -18,7 +18,6 @@ final class DockerJavaImageClient implements DockerImageClient {
         this.dockerClient = Objects.requireNonNull(dockerClient, "dockerClient must not be null");
     }
 
-    @Override
     public void pullImage(String imageReference) {
         try {
             dockerClient.pullImageCmd(imageReference)
@@ -30,7 +29,6 @@ final class DockerJavaImageClient implements DockerImageClient {
         }
     }
 
-    @Override
     public Map<String, String> imageLabels(String imageReference) {
         InspectImageResponse image = dockerClient.inspectImageCmd(imageReference).exec();
         ContainerConfig config = image.getConfig();

@@ -19,7 +19,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class DeploymentMonitorDomainService implements AutoCloseable {
+public class DeploymentMonitorDomainService implements DeploymentMonitor, AutoCloseable {
 
     private static final int DEFAULT_REQUIRED_STABLE_CHECKS = 10;
     private static final Duration DEFAULT_POLL_INTERVAL = Duration.ofSeconds(2);
@@ -89,29 +89,7 @@ public class DeploymentMonitorDomainService implements AutoCloseable {
         this.closeExecutor = closeExecutor;
     }
 
-    protected DeploymentMonitorDomainService() {
-        this.findActualDeploymentStatePort = null;
-        this.findDesiredDeploymentStatePort = null;
-        this.updateDeploymentStatusPort = null;
-        this.executorService = null;
-        this.timeout = Duration.ZERO;
-        this.pollInterval = Duration.ZERO;
-        this.requiredStableChecks = 1;
-        this.closeExecutor = false;
-    }
-
-    static DeploymentMonitorDomainService noop() {
-        return new DeploymentMonitorDomainService() {
-            @Override
-            public void monitorDeployment(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
-            }
-
-            @Override
-            public void close() {
-            }
-        };
-    }
-
+    @Override
     public void monitorDeployment(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
         Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
         Objects.requireNonNull(deploymentId, "deploymentId must not be null");

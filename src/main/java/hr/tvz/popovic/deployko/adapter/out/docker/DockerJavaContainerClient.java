@@ -10,7 +10,7 @@ import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import java.util.List;
 import java.util.Objects;
 
-class DockerJavaContainerClient implements DockerContainerClient {
+class DockerJavaContainerClient {
 
     private final DockerClient dockerClient;
 
@@ -18,7 +18,6 @@ class DockerJavaContainerClient implements DockerContainerClient {
         this.dockerClient = Objects.requireNonNull(dockerClient, "dockerClient must not be null");
     }
 
-    @Override
     public List<Container> listManagedContainers(ServiceName serviceName) {
         Objects.requireNonNull(serviceName, "serviceName must not be null");
 
@@ -29,7 +28,6 @@ class DockerJavaContainerClient implements DockerContainerClient {
         return command.exec();
     }
 
-    @Override
     public int restartCount(String containerId) {
         Objects.requireNonNull(containerId, "containerId must not be null");
 
@@ -41,14 +39,12 @@ class DockerJavaContainerClient implements DockerContainerClient {
         return restartCount == null ? 0 : restartCount;
     }
 
-    @Override
     public void startContainer(String containerId) {
         Objects.requireNonNull(containerId, "containerId must not be null");
 
         dockerClient.startContainerCmd(containerId).exec();
     }
 
-    @Override
     public void stopContainer(String containerId) {
         Objects.requireNonNull(containerId, "containerId must not be null");
 
@@ -58,7 +54,6 @@ class DockerJavaContainerClient implements DockerContainerClient {
         }
     }
 
-    @Override
     public void removeContainer(String containerId) {
         Objects.requireNonNull(containerId, "containerId must not be null");
 

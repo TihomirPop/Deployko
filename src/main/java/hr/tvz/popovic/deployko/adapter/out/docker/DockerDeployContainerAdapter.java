@@ -14,17 +14,10 @@ import java.util.Objects;
 public class DockerDeployContainerAdapter implements DeployContainerPort {
 
     private static final Logger log = LoggerFactory.getLogger(DockerDeployContainerAdapter.class);
-    private final DockerDeploymentClient dockerDeploymentClient;
+    private final DockerJavaDeploymentClient dockerDeploymentClient;
 
     public DockerDeployContainerAdapter(DockerClient dockerClient) {
-        this(new DockerJavaDeploymentClient(dockerClient));
-    }
-
-    DockerDeployContainerAdapter(DockerDeploymentClient dockerDeploymentClient) {
-        this.dockerDeploymentClient = Objects.requireNonNull(
-                dockerDeploymentClient,
-                "dockerDeploymentClient must not be null"
-        );
+        this.dockerDeploymentClient = new DockerJavaDeploymentClient(dockerClient);
     }
 
     @Override

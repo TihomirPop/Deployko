@@ -12,7 +12,7 @@ import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 
 import java.util.Objects;
 
-class DockerJavaDeploymentClient implements DockerDeploymentClient {
+class DockerJavaDeploymentClient {
 
     private final DockerClient dockerClient;
 
@@ -20,7 +20,6 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
         this.dockerClient = Objects.requireNonNull(dockerClient, "dockerClient must not be null");
     }
 
-    @Override
     public void removeContainer(DesiredDeployment desiredDeployment) {
         Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
 
@@ -35,7 +34,6 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
         }
     }
 
-    @Override
     public String createContainer(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
         Objects.requireNonNull(desiredDeployment, "desiredDeployment must not be null");
         Objects.requireNonNull(deploymentId, "deploymentId must not be null");
@@ -57,7 +55,6 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
         return response.getId();
     }
 
-    @Override
     public void connectToNetwork(String containerId, String networkName) {
         Objects.requireNonNull(containerId, "containerId must not be null");
         Objects.requireNonNull(networkName, "networkName must not be null");
@@ -68,7 +65,6 @@ class DockerJavaDeploymentClient implements DockerDeploymentClient {
                 .exec();
     }
 
-    @Override
     public void startContainer(String containerId) {
         Objects.requireNonNull(containerId, "containerId must not be null");
 

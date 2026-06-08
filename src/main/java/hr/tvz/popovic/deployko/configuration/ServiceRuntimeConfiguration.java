@@ -1,5 +1,6 @@
 package hr.tvz.popovic.deployko.configuration;
 
+import hr.tvz.popovic.deployko.application.domain.service.DeploymentMonitor;
 import hr.tvz.popovic.deployko.application.domain.service.DeploymentMonitorDomainService;
 import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeDomainService;
 import hr.tvz.popovic.deployko.application.port.out.DeleteDesiredDeploymentPort;
@@ -37,7 +38,7 @@ public class ServiceRuntimeConfiguration {
             RecordDeploymentHistoryPort recordDeploymentHistoryPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
             FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
-            DeploymentMonitorDomainService deploymentMonitorDomainService
+            DeploymentMonitor deploymentMonitor
     ) {
         return new ServiceRuntimeDomainService(
                 findServiceDefinitionPort,
@@ -53,7 +54,7 @@ public class ServiceRuntimeConfiguration {
                 recordDeploymentHistoryPort,
                 findActualDeploymentStatePort,
                 findServiceSummaryCandidatesPort,
-                deploymentMonitorDomainService
+                deploymentMonitor
         );
     }
 

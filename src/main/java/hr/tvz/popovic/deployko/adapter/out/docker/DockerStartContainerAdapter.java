@@ -9,17 +9,10 @@ import java.util.Objects;
 
 public class DockerStartContainerAdapter implements StartContainerPort {
 
-    private final DockerContainerClient dockerContainerClient;
+    private final DockerJavaContainerClient dockerContainerClient;
 
     public DockerStartContainerAdapter(DockerClient dockerClient) {
-        this(new DockerJavaContainerClient(dockerClient));
-    }
-
-    DockerStartContainerAdapter(DockerContainerClient dockerContainerClient) {
-        this.dockerContainerClient = Objects.requireNonNull(
-                dockerContainerClient,
-                "dockerContainerClient must not be null"
-        );
+        this.dockerContainerClient = new DockerJavaContainerClient(dockerClient);
     }
 
     @Override

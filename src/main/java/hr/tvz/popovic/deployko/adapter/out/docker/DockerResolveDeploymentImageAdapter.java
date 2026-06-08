@@ -19,14 +19,10 @@ public final class DockerResolveDeploymentImageAdapter implements ResolveDeploym
     private static final Logger log = LoggerFactory.getLogger(DockerResolveDeploymentImageAdapter.class);
     private static final String OCI_REVISION_LABEL = "org.opencontainers.image.revision";
 
-    private final DockerImageClient dockerImageClient;
+    private final DockerJavaImageClient dockerImageClient;
 
     public DockerResolveDeploymentImageAdapter(DockerClient dockerClient) {
-        this(new DockerJavaImageClient(dockerClient));
-    }
-
-    DockerResolveDeploymentImageAdapter(DockerImageClient dockerImageClient) {
-        this.dockerImageClient = Objects.requireNonNull(dockerImageClient, "dockerImageClient must not be null");
+        this.dockerImageClient = new DockerJavaImageClient(dockerClient);
     }
 
     @Override

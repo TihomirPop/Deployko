@@ -13,17 +13,10 @@ public class DockerFindActualDeploymentStateAdapter implements FindActualDeploym
 
     private static final String RUNNING_DOCKER_STATE = "running";
 
-    private final DockerContainerClient dockerContainerClient;
+    private final DockerJavaContainerClient dockerContainerClient;
 
     public DockerFindActualDeploymentStateAdapter(DockerClient dockerClient) {
-        this(new DockerJavaContainerClient(dockerClient));
-    }
-
-    DockerFindActualDeploymentStateAdapter(DockerContainerClient dockerContainerClient) {
-        this.dockerContainerClient = Objects.requireNonNull(
-                dockerContainerClient,
-                "dockerContainerClient must not be null"
-        );
+        this.dockerContainerClient = new DockerJavaContainerClient(dockerClient);
     }
 
     @Override
