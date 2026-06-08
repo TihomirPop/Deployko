@@ -6,8 +6,8 @@ spring:
     username: ${DEPLOYKO_DATASOURCE_USERNAME:deployko}
     password: ${DEPLOYKO_DATASOURCE_PASSWORD:deployko}
   rabbitmq:
-    host: ${DEPLOYKO_RABBITMQ_HOST:localhost}
-    port: ${DEPLOYKO_RABBITMQ_PORT:5672}
+    host: ${DEPLOYKO_RABBITMQ_HOST:homeserver}
+    port: ${DEPLOYKO_RABBITMQ_PORT:8053}
     username: ${DEPLOYKO_RABBITMQ_USERNAME:guest}
     password: ${DEPLOYKO_RABBITMQ_PASSWORD:guest}
 
@@ -17,10 +17,10 @@ deployko:
       username: ${DOCKER_HUB_USERNAME:}
       password: ${DOCKER_HUB_PASSWORD:}
   ci-events:
-    exchange: ${DEPLOYKO_CI_EVENTS_EXCHANGE:ci-events}
+    exchange: ${DEPLOYKO_CI_EVENTS_EXCHANGE:}
     queue: ${DEPLOYKO_CI_EVENTS_QUEUE:deployko.ci.pipeline.completed}
     routing-key: ${DEPLOYKO_CI_EVENTS_ROUTING_KEY:pipeline.completed}
     batch-size: ${DEPLOYKO_CI_EVENTS_BATCH_SIZE:10}
     receive-timeout-millis: ${DEPLOYKO_CI_EVENTS_RECEIVE_TIMEOUT_MILLIS:1000}
     deployment-throttle-window: ${DEPLOYKO_CI_EVENTS_DEPLOYMENT_THROTTLE_WINDOW:PT5M}
-    listener-auto-startup: ${DEPLOYKO_CI_EVENTS_LISTENER_AUTO_STARTUP:false}
+    listener-auto-startup: ${DEPLOYKO_CI_EVENTS_LISTENER_AUTO_STARTUP:true}

@@ -29,6 +29,7 @@ import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
+import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -500,13 +501,16 @@ public final class ServiceRuntimeDomainService
                 DesiredDeploymentState.RUNNING
         );
 
+        DeployServiceResult deployServiceResult = deploy(desiredDeployment, deploymentId);
+        deploymentMonitorDomainService.monitorDeployment(desiredDeployment, deploymentId);
+        return deployServiceResult;
+    }
+
+    private DeployServiceResult deploy(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
         return switch (upsertDesiredDeploymentPort.upsert(desiredDeployment)) {
             case UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success _ ->
                     switch (deployContainerPort.deploy(desiredDeployment, deploymentId)) {
-                        case DeployContainerPort.DeployContainerResult.Success _ -> {
-                            deploymentMonitorDomainService.monitorDeployment(desiredDeployment, deploymentId);
-                            yield new DeployServiceResult.Success();
-                        }
+                        case DeployContainerPort.DeployContainerResult.Success _ -> new DeployServiceResult.Success();
                         case DeployContainerPort.DeployContainerResult.Failure _ ->
                                 new DeployServiceResult.DockerFailure();
                     };
