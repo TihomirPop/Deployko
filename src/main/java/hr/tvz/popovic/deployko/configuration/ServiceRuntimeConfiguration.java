@@ -2,7 +2,11 @@ package hr.tvz.popovic.deployko.configuration;
 
 import hr.tvz.popovic.deployko.application.domain.service.DeploymentMonitor;
 import hr.tvz.popovic.deployko.application.domain.service.DeploymentMonitorDomainService;
+import hr.tvz.popovic.deployko.application.domain.service.RuntimeDeploymentDomainService;
+import hr.tvz.popovic.deployko.application.domain.service.RuntimeLifecycleDomainService;
+import hr.tvz.popovic.deployko.application.domain.service.RuntimeStatusDomainService;
 import hr.tvz.popovic.deployko.application.domain.service.ServiceRuntimeDomainService;
+import hr.tvz.popovic.deployko.application.domain.service.ServiceSummaryDomainService;
 import hr.tvz.popovic.deployko.application.port.out.DeleteDesiredDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.DeployContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.FindActualDeploymentStatePort;
@@ -24,39 +28,73 @@ import org.springframework.context.annotation.Configuration;
 public class ServiceRuntimeConfiguration {
 
     @Bean
-    ServiceRuntimeDomainService serviceRuntimeDomainService(
+    RuntimeDeploymentDomainService runtimeDeploymentDomainService(
             FindServiceDefinitionPort findServiceDefinitionPort,
             UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
-            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
-            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
             DeployContainerPort deployContainerPort,
-            StartContainerPort startContainerPort,
-            StopContainerPort stopContainerPort,
-            RemoveContainerPort removeContainerPort,
-            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
             ResolveDeploymentImagePort resolveDeploymentImagePort,
             RecordDeploymentHistoryPort recordDeploymentHistoryPort,
             UpdateDeploymentStatusPort updateDeploymentStatusPort,
-            FindActualDeploymentStatePort findActualDeploymentStatePort,
-            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
             DeploymentMonitor deploymentMonitor
     ) {
-        return new ServiceRuntimeDomainService(
+        return new RuntimeDeploymentDomainService(
                 findServiceDefinitionPort,
+                resolveDeploymentImagePort,
+                recordDeploymentHistoryPort,
                 upsertDesiredDeploymentPort,
+                deployContainerPort,
+                updateDeploymentStatusPort,
+                deploymentMonitor
+        );
+    }
+
+    @Bean
+    RuntimeLifecycleDomainService runtimeLifecycleDomainService(
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort
+    ) {
+        return new RuntimeLifecycleDomainService(
                 updateDesiredDeploymentStatePort,
                 findDesiredDeploymentStatePort,
-                deployContainerPort,
                 startContainerPort,
                 stopContainerPort,
                 removeContainerPort,
-                deleteDesiredDeploymentPort,
-                resolveDeploymentImagePort,
-                recordDeploymentHistoryPort,
-                updateDeploymentStatusPort,
-                findActualDeploymentStatePort,
-                findServiceSummaryCandidatesPort,
-                deploymentMonitor
+                deleteDesiredDeploymentPort
+        );
+    }
+
+    @Bean
+    RuntimeStatusDomainService runtimeStatusDomainService(
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort
+    ) {
+        return new RuntimeStatusDomainService(findDesiredDeploymentStatePort, findActualDeploymentStatePort);
+    }
+
+    @Bean
+    ServiceSummaryDomainService serviceSummaryDomainService(
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
+            RuntimeStatusDomainService runtimeStatusDomainService
+    ) {
+        return new ServiceSummaryDomainService(findServiceSummaryCandidatesPort, runtimeStatusDomainService);
+    }
+
+    @Bean
+    ServiceRuntimeDomainService serviceRuntimeDomainService(
+            RuntimeDeploymentDomainService runtimeDeploymentDomainService,
+            RuntimeLifecycleDomainService runtimeLifecycleDomainService,
+            RuntimeStatusDomainService runtimeStatusDomainService,
+            ServiceSummaryDomainService serviceSummaryDomainService
+    ) {
+        return new ServiceRuntimeDomainService(
+                runtimeDeploymentDomainService,
+                runtimeLifecycleDomainService,
+                runtimeStatusDomainService,
+                serviceSummaryDomainService
         );
     }
 
