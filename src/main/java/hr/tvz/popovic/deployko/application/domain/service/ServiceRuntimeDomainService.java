@@ -2,6 +2,7 @@ package hr.tvz.popovic.deployko.application.domain.service;
 
 import hr.tvz.popovic.deployko.application.domain.model.ActualDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
+import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha;
@@ -27,6 +28,7 @@ import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.ResolveDeploymentImagePort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.UpdateDeploymentStatusPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.UpsertDesiredDeploymentPort;
 import org.jspecify.annotations.NonNull;
@@ -51,6 +53,7 @@ public final class ServiceRuntimeDomainService
     private final DeleteDesiredDeploymentPort deleteDesiredDeploymentPort;
     private final ResolveDeploymentImagePort resolveDeploymentImagePort;
     private final RecordDeploymentHistoryPort recordDeploymentHistoryPort;
+    private final UpdateDeploymentStatusPort updateDeploymentStatusPort;
     private final FindActualDeploymentStatePort findActualDeploymentStatePort;
     private final FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort;
     private final DeploymentMonitor deploymentMonitor;
@@ -67,6 +70,7 @@ public final class ServiceRuntimeDomainService
             DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
             ResolveDeploymentImagePort resolveDeploymentImagePort,
             RecordDeploymentHistoryPort recordDeploymentHistoryPort,
+            UpdateDeploymentStatusPort updateDeploymentStatusPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
             FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
             DeploymentMonitor deploymentMonitor
@@ -114,6 +118,10 @@ public final class ServiceRuntimeDomainService
         this.recordDeploymentHistoryPort = Objects.requireNonNull(
                 recordDeploymentHistoryPort,
                 "recordDeploymentHistoryPort must not be null"
+        );
+        this.updateDeploymentStatusPort = Objects.requireNonNull(
+                updateDeploymentStatusPort,
+                "updateDeploymentStatusPort must not be null"
         );
         this.findActualDeploymentStatePort = Objects.requireNonNull(
                 findActualDeploymentStatePort,
@@ -312,6 +320,8 @@ public final class ServiceRuntimeDomainService
         DeployServiceResult deployServiceResult = deploy(desiredDeployment, deploymentId);
         if (deployServiceResult instanceof DeployServiceResult.Success) {
             deploymentMonitor.monitorDeployment(desiredDeployment, deploymentId);
+        } else {
+            updateDeploymentStatusPort.updateStatus(deploymentId, DeploymentStatus.FAILURE);
         }
         return deployServiceResult;
     }

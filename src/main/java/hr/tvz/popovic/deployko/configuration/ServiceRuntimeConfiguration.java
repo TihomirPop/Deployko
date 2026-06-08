@@ -36,6 +36,7 @@ public class ServiceRuntimeConfiguration {
             DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
             ResolveDeploymentImagePort resolveDeploymentImagePort,
             RecordDeploymentHistoryPort recordDeploymentHistoryPort,
+            UpdateDeploymentStatusPort updateDeploymentStatusPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
             FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
             DeploymentMonitor deploymentMonitor
@@ -52,6 +53,7 @@ public class ServiceRuntimeConfiguration {
                 deleteDesiredDeploymentPort,
                 resolveDeploymentImagePort,
                 recordDeploymentHistoryPort,
+                updateDeploymentStatusPort,
                 findActualDeploymentStatePort,
                 findServiceSummaryCandidatesPort,
                 deploymentMonitor
