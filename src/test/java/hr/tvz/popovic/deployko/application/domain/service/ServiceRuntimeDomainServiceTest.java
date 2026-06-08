@@ -390,7 +390,17 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.DockerFailure.class);
-        assertThat(deploymentMonitorDomainService.records).isEmpty();
+        assertThat(deploymentMonitorDomainService.records)
+                .containsExactly(new DeploymentMonitorRecord(
+                        new DesiredDeployment(
+                                SERVICE.name(),
+                                SERVICE.imageRepository(),
+                                IMAGE_VERSION,
+                                SERVICE.runtimeConfiguration(),
+                                DesiredDeploymentState.RUNNING
+                        ),
+                        DEPLOYMENT_ID
+                ));
     }
 
     @Test
