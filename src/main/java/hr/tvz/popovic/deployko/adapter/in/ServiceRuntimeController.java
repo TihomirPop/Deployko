@@ -55,7 +55,8 @@ public class ServiceRuntimeController {
 
             return switch (result) {
                 case DeployServiceUseCase.DeployServiceResult.Success _ -> ResponseEntity.noContent().build();
-                case DeployServiceUseCase.DeployServiceResult.ServiceNotFound _ -> ResponseEntity.notFound().build();
+                case DeployServiceUseCase.DeployServiceResult.ServiceNotFound _,
+                     DeployServiceUseCase.DeployServiceResult.ImageNotFound _ -> ResponseEntity.notFound().build();
                 case DeployServiceUseCase.DeployServiceResult.DesiredStateFailure _,
                      DeployServiceUseCase.DeployServiceResult.DockerFailure _ -> ResponseEntity
                         .status(HttpStatus.INTERNAL_SERVER_ERROR)

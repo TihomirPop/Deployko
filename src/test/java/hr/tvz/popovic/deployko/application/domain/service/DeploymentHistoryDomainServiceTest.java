@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.application.domain.service;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentAttempt;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
+import hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.in.GetLatestDeploymentUseCase;
@@ -20,6 +21,7 @@ class DeploymentHistoryDomainServiceTest {
     private static final DeploymentAttempt DEPLOYMENT_ATTEMPT = new DeploymentAttempt(
             new DeploymentId(UUID.fromString("018f4b5d-9c64-7000-9f2e-4d8fbf9f1b22")),
             new ImageVersion("1.0.0"),
+            new ImageCommitSha.Known("f5a1c2d"),
             DeploymentStatus.SUCCESS,
             OffsetDateTime.parse("2026-06-07T10:15:30Z")
     );

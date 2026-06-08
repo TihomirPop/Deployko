@@ -91,6 +91,20 @@ public class ServiceDeploymentHistoryRecord extends UpdatableRecordImpl<ServiceD
         return (String) get(4);
     }
 
+    /**
+     * Setter for <code>public.service_deployment_history.commit_sha</code>.
+     */
+    public void setCommitSha(String value) {
+        set(5, value);
+    }
+
+    /**
+     * Getter for <code>public.service_deployment_history.commit_sha</code>.
+     */
+    public String getCommitSha() {
+        return (String) get(5);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -114,7 +128,7 @@ public class ServiceDeploymentHistoryRecord extends UpdatableRecordImpl<ServiceD
     /**
      * Create a detached, initialised ServiceDeploymentHistoryRecord
      */
-    public ServiceDeploymentHistoryRecord(UUID id, UUID serviceId, String imageVersion, OffsetDateTime recordedAt, String status) {
+    public ServiceDeploymentHistoryRecord(UUID id, UUID serviceId, String imageVersion, OffsetDateTime recordedAt, String status, String commitSha) {
         super(ServiceDeploymentHistory.SERVICE_DEPLOYMENT_HISTORY);
 
         setId(id);
@@ -122,6 +136,7 @@ public class ServiceDeploymentHistoryRecord extends UpdatableRecordImpl<ServiceD
         setImageVersion(imageVersion);
         setRecordedAt(recordedAt);
         setStatus(status);
+        setCommitSha(commitSha);
         resetChangedOnNotNull();
     }
 }

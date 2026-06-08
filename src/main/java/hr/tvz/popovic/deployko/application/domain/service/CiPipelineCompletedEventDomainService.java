@@ -89,6 +89,7 @@ public final class CiPipelineCompletedEventDomainService implements HandleCiPipe
                 case HandleCiPipelineCompletedEventResult.SkippedRecentDeployment _ -> {
                 }
                 case HandleCiPipelineCompletedEventResult.NoMatchingServices _,
+                     HandleCiPipelineCompletedEventResult.DeploymentImageNotFound _,
                      HandleCiPipelineCompletedEventResult.ServiceLookupFailure _,
                      HandleCiPipelineCompletedEventResult.DeploymentFailure _,
                      HandleCiPipelineCompletedEventResult.LastDeploymentLookupFailure _,
@@ -148,6 +149,8 @@ public final class CiPipelineCompletedEventDomainService implements HandleCiPipe
             case DeployServiceUseCase.DeployServiceResult.Success _ -> recordDeployment(serviceName, now);
             case DeployServiceUseCase.DeployServiceResult.ServiceNotFound _ ->
                     new HandleCiPipelineCompletedEventResult.DeploymentFailure();
+            case DeployServiceUseCase.DeployServiceResult.ImageNotFound _ ->
+                    new HandleCiPipelineCompletedEventResult.DeploymentImageNotFound();
             case DeployServiceUseCase.DeployServiceResult.DesiredStateFailure _,
                  DeployServiceUseCase.DeployServiceResult.DockerFailure _ ->
                     new HandleCiPipelineCompletedEventResult.DeploymentFailure();

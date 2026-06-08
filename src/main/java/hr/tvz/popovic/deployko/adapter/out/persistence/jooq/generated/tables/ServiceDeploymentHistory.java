@@ -87,6 +87,11 @@ public class ServiceDeploymentHistory extends TableImpl<ServiceDeploymentHistory
      */
     public final TableField<ServiceDeploymentHistoryRecord, String> STATUS = createField(DSL.name("status"), SQLDataType.CLOB.nullable(false).defaultValue(DSL.field(DSL.raw("'IN_PROGRESS'::text"), SQLDataType.CLOB)), this, "");
 
+    /**
+     * The column <code>public.service_deployment_history.commit_sha</code>.
+     */
+    public final TableField<ServiceDeploymentHistoryRecord, String> COMMIT_SHA = createField(DSL.name("commit_sha"), SQLDataType.CLOB, this, "");
+
     private ServiceDeploymentHistory(Name alias, Table<ServiceDeploymentHistoryRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

@@ -5,6 +5,7 @@ import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
+import hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
@@ -32,6 +33,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.ResolveDeploymentImagePort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -52,6 +54,7 @@ class ServiceRuntimeDomainServiceTest {
     private static final DeploymentId DEPLOYMENT_ID = new DeploymentId(
             UUID.fromString("018f4b5d-9c64-7000-9f2e-4d8fbf9f1b22")
     );
+    private static final ImageCommitSha COMMIT_SHA = new ImageCommitSha.Known("f5a1c2d");
 
     @Test
     void deploys_service_when_definition_exists_and_ports_succeed() {
@@ -85,7 +88,7 @@ class ServiceRuntimeDomainServiceTest {
 
         assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.Success.class);
         assertThat(recordDeploymentHistoryPort.records)
-                .containsExactly(new DeploymentHistoryRecord(SERVICE.name(), IMAGE_VERSION));
+                .containsExactly(new DeploymentHistoryRecord(SERVICE.name(), IMAGE_VERSION, new ImageCommitSha.Unknown()));
         assertThat(upsertDesiredDeploymentPort.upsertedDeployments).hasSize(1);
         assertThat(upsertDesiredDeploymentPort.upsertedDeployments.getFirst()).isEqualTo(new DesiredDeployment(
                 SERVICE.name(),
@@ -100,9 +103,13 @@ class ServiceRuntimeDomainServiceTest {
     }
 
     @Test
-    void records_deployment_history_before_upserting_desired_state_and_deploying_container() {
+    void resolves_image_before_recording_history_upserting_desired_state_and_deploying_container() {
         List<String> events = new ArrayList<>();
         ServiceRuntimeDomainService service = serviceWithDeployPorts(
+                new FakeResolveDeploymentImagePort(
+                        new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(COMMIT_SHA),
+                        events
+                ),
                 new FakeRecordDeploymentHistoryPort(
                         new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID),
                         events
@@ -119,7 +126,65 @@ class ServiceRuntimeDomainServiceTest {
         );
 
         assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.Success.class);
-        assertThat(events).containsExactly("record-history", "upsert-desired-state", "deploy-container");
+        assertThat(events).containsExactly(
+                "resolve-image",
+                "record-history",
+                "upsert-desired-state",
+                "deploy-container"
+        );
+    }
+
+    @Test
+    void returns_image_not_found_without_db_or_container_changes_when_image_resolution_reports_missing_image() {
+        FakeRecordDeploymentHistoryPort recordDeploymentHistoryPort = new FakeRecordDeploymentHistoryPort(
+                new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+        );
+        FakeUpsertDesiredDeploymentPort upsertDesiredDeploymentPort = new FakeUpsertDesiredDeploymentPort(
+                new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success()
+        );
+        FakeDeployContainerPort deployContainerPort = new FakeDeployContainerPort(
+                new DeployContainerPort.DeployContainerResult.Success()
+        );
+        ServiceRuntimeDomainService service = serviceWithDeployPorts(
+                new FakeResolveDeploymentImagePort(
+                        new ResolveDeploymentImagePort.ResolveDeploymentImageResult.ImageNotFound()
+                ),
+                recordDeploymentHistoryPort,
+                upsertDesiredDeploymentPort,
+                deployContainerPort
+        );
+
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        );
+
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.ImageNotFound.class);
+        assertThat(recordDeploymentHistoryPort.records).isEmpty();
+        assertThat(upsertDesiredDeploymentPort.upsertedDeployments).isEmpty();
+        assertThat(deployContainerPort.deployedDeployments).isEmpty();
+    }
+
+    @Test
+    void records_commit_sha_from_resolved_image() {
+        FakeRecordDeploymentHistoryPort recordDeploymentHistoryPort = new FakeRecordDeploymentHistoryPort(
+                new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(DEPLOYMENT_ID)
+        );
+        ServiceRuntimeDomainService service = serviceWithDeployPorts(
+                new FakeResolveDeploymentImagePort(
+                        new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(COMMIT_SHA)
+                ),
+                recordDeploymentHistoryPort,
+                new FakeUpsertDesiredDeploymentPort(new UpsertDesiredDeploymentPort.UpsertDesiredDeploymentResult.Success()),
+                new FakeDeployContainerPort(new DeployContainerPort.DeployContainerResult.Success())
+        );
+
+        DeployServiceUseCase.DeployServiceResult result = service.deployService(
+                new DeployServiceUseCase.DeployServiceCommand(SERVICE.name(), IMAGE_VERSION)
+        );
+
+        assertThat(result).isInstanceOf(DeployServiceUseCase.DeployServiceResult.Success.class);
+        assertThat(recordDeploymentHistoryPort.records)
+                .containsExactly(new DeploymentHistoryRecord(SERVICE.name(), IMAGE_VERSION, COMMIT_SHA));
     }
 
     @Test
@@ -817,6 +882,22 @@ class ServiceRuntimeDomainServiceTest {
             UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
             DeployContainerPort deployContainerPort
     ) {
+        return serviceWithDeployPorts(
+                new FakeResolveDeploymentImagePort(
+                        new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(new ImageCommitSha.Unknown())
+                ),
+                recordDeploymentHistoryPort,
+                upsertDesiredDeploymentPort,
+                deployContainerPort
+        );
+    }
+
+    private static ServiceRuntimeDomainService serviceWithDeployPorts(
+            ResolveDeploymentImagePort resolveDeploymentImagePort,
+            RecordDeploymentHistoryPort recordDeploymentHistoryPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            DeployContainerPort deployContainerPort
+    ) {
         return new ServiceRuntimeDomainService(
                 _ -> new FindServiceDefinitionPort.FindServiceDefinitionResult.Found(SERVICE),
                 upsertDesiredDeploymentPort,
@@ -827,6 +908,7 @@ class ServiceRuntimeDomainServiceTest {
                 successfulStopContainerPort(),
                 failingRemoveContainerPort(),
                 failingDeleteDesiredDeploymentPort(),
+                resolveDeploymentImagePort,
                 recordDeploymentHistoryPort,
                 successfulFindActualDeploymentStatePort(),
                 failingFindServiceSummaryCandidatesPort()
@@ -898,7 +980,7 @@ class ServiceRuntimeDomainServiceTest {
     ) {
     }
 
-    private record DeploymentHistoryRecord(ServiceName serviceName, ImageVersion imageVersion) {
+    private record DeploymentHistoryRecord(ServiceName serviceName, ImageVersion imageVersion, ImageCommitSha commitSha) {
     }
 
     private record DeploymentMonitorRecord(DesiredDeployment desiredDeployment, DeploymentId deploymentId) {
@@ -952,6 +1034,30 @@ class ServiceRuntimeDomainServiceTest {
         }
     }
 
+    private static final class FakeResolveDeploymentImagePort implements ResolveDeploymentImagePort {
+
+        private final ResolveDeploymentImageResult result;
+        private final List<String> events;
+
+        private FakeResolveDeploymentImagePort(ResolveDeploymentImageResult result) {
+            this(result, new ArrayList<>());
+        }
+
+        private FakeResolveDeploymentImagePort(ResolveDeploymentImageResult result, List<String> events) {
+            this.result = result;
+            this.events = events;
+        }
+
+        @Override
+        public ResolveDeploymentImageResult resolveDeploymentImage(
+                ImageRepository imageRepository,
+                ImageVersion imageVersion
+        ) {
+            events.add("resolve-image");
+            return result;
+        }
+    }
+
     private static final class FakeRecordDeploymentHistoryPort implements RecordDeploymentHistoryPort {
 
         private final RecordDeploymentHistoryResult result;
@@ -968,9 +1074,13 @@ class ServiceRuntimeDomainServiceTest {
         }
 
         @Override
-        public RecordDeploymentHistoryResult recordDeployment(ServiceName serviceName, ImageVersion imageVersion) {
+        public RecordDeploymentHistoryResult recordDeployment(
+                ServiceName serviceName,
+                ImageVersion imageVersion,
+                ImageCommitSha commitSha
+        ) {
             events.add("record-history");
-            records.add(new DeploymentHistoryRecord(serviceName, imageVersion));
+            records.add(new DeploymentHistoryRecord(serviceName, imageVersion, commitSha));
             return result;
         }
     }

@@ -15,12 +15,16 @@ public interface DeployServiceUseCase {
 
     sealed interface DeployServiceResult
             permits DeployServiceResult.Success, DeployServiceResult.ServiceNotFound,
-            DeployServiceResult.DesiredStateFailure, DeployServiceResult.DockerFailure {
+            DeployServiceResult.ImageNotFound, DeployServiceResult.DesiredStateFailure,
+            DeployServiceResult.DockerFailure {
 
         record Success() implements DeployServiceResult {
         }
 
         record ServiceNotFound() implements DeployServiceResult {
+        }
+
+        record ImageNotFound() implements DeployServiceResult {
         }
 
         record DesiredStateFailure() implements DeployServiceResult {

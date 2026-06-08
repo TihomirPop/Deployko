@@ -4,6 +4,7 @@ import hr.tvz.popovic.deployko.application.domain.model.ActualDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeployment;
 import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
+import hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
@@ -23,6 +24,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.ResolveDeploymentImagePort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDesiredDeploymentStatePort;
@@ -47,6 +49,7 @@ public final class ServiceRuntimeDomainService
     private final StopContainerPort stopContainerPort;
     private final RemoveContainerPort removeContainerPort;
     private final DeleteDesiredDeploymentPort deleteDesiredDeploymentPort;
+    private final ResolveDeploymentImagePort resolveDeploymentImagePort;
     private final RecordDeploymentHistoryPort recordDeploymentHistoryPort;
     private final FindActualDeploymentStatePort findActualDeploymentStatePort;
     private final FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort;
@@ -72,72 +75,12 @@ public final class ServiceRuntimeDomainService
                 stopContainerPort,
                 _ -> new RemoveContainerPort.RemoveContainerResult.Failure(),
                 _ -> new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure(),
-                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
+                (_, _) -> new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(new ImageCommitSha.Unknown()),
+                (_, _, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
                         new DeploymentId(UUID.randomUUID())
                 ),
                 findActualDeploymentStatePort,
                 () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure(),
-                DeploymentMonitorDomainService.noop()
-        );
-    }
-
-    public ServiceRuntimeDomainService(
-            FindServiceDefinitionPort findServiceDefinitionPort,
-            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
-            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
-            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
-            DeployContainerPort deployContainerPort,
-            StartContainerPort startContainerPort,
-            StopContainerPort stopContainerPort,
-            RemoveContainerPort removeContainerPort,
-            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
-            FindActualDeploymentStatePort findActualDeploymentStatePort
-    ) {
-        this(
-                findServiceDefinitionPort,
-                upsertDesiredDeploymentPort,
-                updateDesiredDeploymentStatePort,
-                findDesiredDeploymentStatePort,
-                deployContainerPort,
-                startContainerPort,
-                stopContainerPort,
-                removeContainerPort,
-                deleteDesiredDeploymentPort,
-                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
-                        new DeploymentId(UUID.randomUUID())
-                ),
-                findActualDeploymentStatePort,
-                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure(),
-                DeploymentMonitorDomainService.noop()
-        );
-    }
-
-    public ServiceRuntimeDomainService(
-            FindServiceDefinitionPort findServiceDefinitionPort,
-            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
-            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
-            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
-            DeployContainerPort deployContainerPort,
-            StartContainerPort startContainerPort,
-            StopContainerPort stopContainerPort,
-            FindActualDeploymentStatePort findActualDeploymentStatePort,
-            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
-    ) {
-        this(
-                findServiceDefinitionPort,
-                upsertDesiredDeploymentPort,
-                updateDesiredDeploymentStatePort,
-                findDesiredDeploymentStatePort,
-                deployContainerPort,
-                startContainerPort,
-                stopContainerPort,
-                _ -> new RemoveContainerPort.RemoveContainerResult.Failure(),
-                _ -> new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure(),
-                (_, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
-                        new DeploymentId(UUID.randomUUID())
-                ),
-                findActualDeploymentStatePort,
-                findServiceSummaryCandidatesPort,
                 DeploymentMonitorDomainService.noop()
         );
     }
@@ -166,6 +109,7 @@ public final class ServiceRuntimeDomainService
                 stopContainerPort,
                 removeContainerPort,
                 deleteDesiredDeploymentPort,
+                (_, _) -> new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(new ImageCommitSha.Unknown()),
                 recordDeploymentHistoryPort,
                 findActualDeploymentStatePort,
                 findServiceSummaryCandidatesPort,
@@ -183,6 +127,136 @@ public final class ServiceRuntimeDomainService
             StopContainerPort stopContainerPort,
             RemoveContainerPort removeContainerPort,
             DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
+            RecordDeploymentHistoryPort recordDeploymentHistoryPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort,
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
+            DeploymentMonitorDomainService deploymentMonitorDomainService
+    ) {
+        this(
+                findServiceDefinitionPort,
+                upsertDesiredDeploymentPort,
+                updateDesiredDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort,
+                removeContainerPort,
+                deleteDesiredDeploymentPort,
+                (_, _) -> new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(new ImageCommitSha.Unknown()),
+                recordDeploymentHistoryPort,
+                findActualDeploymentStatePort,
+                findServiceSummaryCandidatesPort,
+                deploymentMonitorDomainService
+        );
+    }
+
+    public ServiceRuntimeDomainService(
+            FindServiceDefinitionPort findServiceDefinitionPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort
+    ) {
+        this(
+                findServiceDefinitionPort,
+                upsertDesiredDeploymentPort,
+                updateDesiredDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort,
+                removeContainerPort,
+                deleteDesiredDeploymentPort,
+                (_, _) -> new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(new ImageCommitSha.Unknown()),
+                (_, _, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
+                        new DeploymentId(UUID.randomUUID())
+                ),
+                findActualDeploymentStatePort,
+                () -> new FindServiceSummaryCandidatesPort.FindServiceSummaryCandidatesResult.Failure(),
+                DeploymentMonitorDomainService.noop()
+        );
+    }
+
+    public ServiceRuntimeDomainService(
+            FindServiceDefinitionPort findServiceDefinitionPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort,
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
+    ) {
+        this(
+                findServiceDefinitionPort,
+                upsertDesiredDeploymentPort,
+                updateDesiredDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort,
+                _ -> new RemoveContainerPort.RemoveContainerResult.Failure(),
+                _ -> new DeleteDesiredDeploymentPort.DeleteDesiredDeploymentResult.Failure(),
+                (_, _) -> new ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found(new ImageCommitSha.Unknown()),
+                (_, _, _) -> new RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded(
+                        new DeploymentId(UUID.randomUUID())
+                ),
+                findActualDeploymentStatePort,
+                findServiceSummaryCandidatesPort,
+                DeploymentMonitorDomainService.noop()
+        );
+    }
+
+    public ServiceRuntimeDomainService(
+            FindServiceDefinitionPort findServiceDefinitionPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
+            ResolveDeploymentImagePort resolveDeploymentImagePort,
+            RecordDeploymentHistoryPort recordDeploymentHistoryPort,
+            FindActualDeploymentStatePort findActualDeploymentStatePort,
+            FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort
+    ) {
+        this(
+                findServiceDefinitionPort,
+                upsertDesiredDeploymentPort,
+                updateDesiredDeploymentStatePort,
+                findDesiredDeploymentStatePort,
+                deployContainerPort,
+                startContainerPort,
+                stopContainerPort,
+                removeContainerPort,
+                deleteDesiredDeploymentPort,
+                resolveDeploymentImagePort,
+                recordDeploymentHistoryPort,
+                findActualDeploymentStatePort,
+                findServiceSummaryCandidatesPort,
+                DeploymentMonitorDomainService.noop()
+        );
+    }
+
+    public ServiceRuntimeDomainService(
+            FindServiceDefinitionPort findServiceDefinitionPort,
+            UpsertDesiredDeploymentPort upsertDesiredDeploymentPort,
+            UpdateDesiredDeploymentStatePort updateDesiredDeploymentStatePort,
+            FindDesiredDeploymentStatePort findDesiredDeploymentStatePort,
+            DeployContainerPort deployContainerPort,
+            StartContainerPort startContainerPort,
+            StopContainerPort stopContainerPort,
+            RemoveContainerPort removeContainerPort,
+            DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
+            ResolveDeploymentImagePort resolveDeploymentImagePort,
             RecordDeploymentHistoryPort recordDeploymentHistoryPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
             FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
@@ -223,6 +297,10 @@ public final class ServiceRuntimeDomainService
         this.deleteDesiredDeploymentPort = Objects.requireNonNull(
                 deleteDesiredDeploymentPort,
                 "deleteDesiredDeploymentPort must not be null"
+        );
+        this.resolveDeploymentImagePort = Objects.requireNonNull(
+                resolveDeploymentImagePort,
+                "resolveDeploymentImagePort must not be null"
         );
         this.recordDeploymentHistoryPort = Objects.requireNonNull(
                 recordDeploymentHistoryPort,
@@ -388,8 +466,21 @@ public final class ServiceRuntimeDomainService
     }
 
     private DeployServiceResult deployFoundService(Service service, ImageVersion imageVersion) {
+        ImageCommitSha commitSha;
+        switch (resolveDeploymentImagePort.resolveDeploymentImage(service.imageRepository(), imageVersion)) {
+            case ResolveDeploymentImagePort.ResolveDeploymentImageResult.Found found -> {
+                commitSha = found.commitSha();
+            }
+            case ResolveDeploymentImagePort.ResolveDeploymentImageResult.ImageNotFound _ -> {
+                return new DeployServiceResult.ImageNotFound();
+            }
+            case ResolveDeploymentImagePort.ResolveDeploymentImageResult.Failure _ -> {
+                return new DeployServiceResult.DockerFailure();
+            }
+        }
+
         DeploymentId deploymentId;
-        switch (recordDeploymentHistoryPort.recordDeployment(service.name(), imageVersion)) {
+        switch (recordDeploymentHistoryPort.recordDeployment(service.name(), imageVersion, commitSha)) {
             case RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded recorded -> {
                 deploymentId = recorded.deploymentId();
             }

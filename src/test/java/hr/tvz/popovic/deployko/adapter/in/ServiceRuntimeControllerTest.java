@@ -60,6 +60,22 @@ class ServiceRuntimeControllerTest {
     }
 
     @Test
+    void returns_not_found_when_deployment_image_is_missing() throws Exception {
+        MockMvc mockMvc = mockMvc(new StubServiceRuntimeUseCases(
+                new DeployServiceUseCase.DeployServiceResult.ImageNotFound()
+        ));
+
+        mockMvc.perform(post("/services/{serviceName}/runtime/deploy", "deployko-api")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "imageVersion": "1.0.0"
+                                }
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void returns_bad_request_when_service_name_is_invalid() throws Exception {
         MockMvc mockMvc = mockMvc(new StubServiceRuntimeUseCases(
                 new DeployServiceUseCase.DeployServiceResult.Success()

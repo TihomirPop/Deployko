@@ -10,6 +10,7 @@ import hr.tvz.popovic.deployko.application.port.out.FindServiceDefinitionPort;
 import hr.tvz.popovic.deployko.application.port.out.FindServiceSummaryCandidatesPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.RemoveContainerPort;
+import hr.tvz.popovic.deployko.application.port.out.ResolveDeploymentImagePort;
 import hr.tvz.popovic.deployko.application.port.out.StartContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.StopContainerPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDeploymentStatusPort;
@@ -32,6 +33,7 @@ public class ServiceRuntimeConfiguration {
             StopContainerPort stopContainerPort,
             RemoveContainerPort removeContainerPort,
             DeleteDesiredDeploymentPort deleteDesiredDeploymentPort,
+            ResolveDeploymentImagePort resolveDeploymentImagePort,
             RecordDeploymentHistoryPort recordDeploymentHistoryPort,
             FindActualDeploymentStatePort findActualDeploymentStatePort,
             FindServiceSummaryCandidatesPort findServiceSummaryCandidatesPort,
@@ -47,6 +49,7 @@ public class ServiceRuntimeConfiguration {
                 stopContainerPort,
                 removeContainerPort,
                 deleteDesiredDeploymentPort,
+                resolveDeploymentImagePort,
                 recordDeploymentHistoryPort,
                 findActualDeploymentStatePort,
                 findServiceSummaryCandidatesPort,

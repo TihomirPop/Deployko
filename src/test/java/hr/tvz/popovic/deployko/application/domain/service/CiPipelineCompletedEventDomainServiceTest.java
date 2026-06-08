@@ -184,6 +184,26 @@ class CiPipelineCompletedEventDomainServiceTest {
     }
 
     @Test
+    void returns_deployment_image_not_found_when_deploy_use_case_reports_missing_image() {
+        FakeRecordCiDeploymentPort recordCiDeploymentPort = new FakeRecordCiDeploymentPort(
+                new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()
+        );
+        CiPipelineCompletedEventDomainService service = service(
+                services(API_SERVICE_NAME),
+                _ -> new FindLastCiDeploymentPort.FindLastCiDeploymentResult.NotDeployed(),
+                recordCiDeploymentPort,
+                new FakeDeployServiceUseCase(new DeployServiceUseCase.DeployServiceResult.ImageNotFound())
+        );
+
+        HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult result =
+                service.handleCiPipelineCompletedEvent(command());
+
+        assertThat(result)
+                .isInstanceOf(HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.DeploymentImageNotFound.class);
+        assertThat(recordCiDeploymentPort.records).isEmpty();
+    }
+
+    @Test
     void attempts_remaining_services_when_one_matching_service_fails() {
         FakeRecordCiDeploymentPort recordCiDeploymentPort = new FakeRecordCiDeploymentPort(
                 new RecordCiDeploymentPort.RecordCiDeploymentResult.Recorded()

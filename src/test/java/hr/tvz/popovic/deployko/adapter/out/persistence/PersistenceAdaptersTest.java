@@ -6,6 +6,7 @@ import hr.tvz.popovic.deployko.application.domain.model.DeploymentAttempt;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
 import hr.tvz.popovic.deployko.application.domain.model.EnvironmentVariables;
+import hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.NetworkAttachment;
@@ -1167,7 +1168,11 @@ class PersistenceAdaptersTest {
         serviceDefinitions.create(service);
 
         RecordDeploymentHistoryPort.RecordDeploymentHistoryResult result =
-                deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
+                deploymentHistory.recordDeployment(
+                        service.name(),
+                        new ImageVersion("2.0.0"),
+                        new ImageCommitSha.Known("f5a1c2d")
+                );
 
         assertThat(result).isInstanceOf(RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded.class);
         RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded recorded =
@@ -1187,6 +1192,7 @@ class PersistenceAdaptersTest {
                         .on(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID.eq(SERVICES.ID))
                         .where(SERVICES.NAME.eq("billing-api"))
                         .and(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION.eq("2.0.0"))
+                        .and(SERVICE_DEPLOYMENT_HISTORY.COMMIT_SHA.eq("f5a1c2d"))
                         .and(SERVICE_DEPLOYMENT_HISTORY.STATUS.eq(DeploymentStatus.IN_PROGRESS.name()))
                         .and(SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT.isNotNull())
         )).isTrue();
@@ -1198,7 +1204,11 @@ class PersistenceAdaptersTest {
         serviceDefinitions.create(service);
         RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded recorded =
                 (RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded)
-                        deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
+                        deploymentHistory.recordDeployment(
+                                service.name(),
+                                new ImageVersion("2.0.0"),
+                                new ImageCommitSha.Unknown()
+                        );
 
         UpdateDeploymentStatusPort.UpdateDeploymentStatusResult result =
                 deploymentHistory.updateStatus(recorded.deploymentId(), DeploymentStatus.CANCELED);
@@ -1227,10 +1237,18 @@ class PersistenceAdaptersTest {
     void find_latest_deployment_returns_latest_recorded_attempt() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
         serviceDefinitions.create(service);
-        deploymentHistory.recordDeployment(service.name(), new ImageVersion("1.0.0"));
+        deploymentHistory.recordDeployment(
+                service.name(),
+                new ImageVersion("1.0.0"),
+                new ImageCommitSha.Unknown()
+        );
         RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded latest =
                 (RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.Recorded)
-                        deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
+                        deploymentHistory.recordDeployment(
+                                service.name(),
+                                new ImageVersion("2.0.0"),
+                                new ImageCommitSha.Known("f5a1c2d")
+                        );
         deploymentHistory.updateStatus(latest.deploymentId(), DeploymentStatus.SUCCESS);
 
         FindLatestDeploymentPort.FindLatestDeploymentResult result =
@@ -1245,6 +1263,7 @@ class PersistenceAdaptersTest {
                 .isEqualTo(new DeploymentAttempt(
                         latest.deploymentId(),
                         new ImageVersion("2.0.0"),
+                        new ImageCommitSha.Known("f5a1c2d"),
                         DeploymentStatus.SUCCESS,
                         OffsetDateTime.parse("2026-06-07T10:15:30Z")
                 ));
@@ -1273,7 +1292,11 @@ class PersistenceAdaptersTest {
     @Test
     void record_deployment_history_returns_service_not_found_when_service_does_not_exist() {
         RecordDeploymentHistoryPort.RecordDeploymentHistoryResult result =
-                deploymentHistory.recordDeployment(new ServiceName("missing-api"), new ImageVersion("2.0.0"));
+                deploymentHistory.recordDeployment(
+                        new ServiceName("missing-api"),
+                        new ImageVersion("2.0.0"),
+                        new ImageCommitSha.Known("f5a1c2d")
+                );
 
         assertThat(result)
                 .isInstanceOf(RecordDeploymentHistoryPort.RecordDeploymentHistoryResult.ServiceNotFound.class);
@@ -1284,7 +1307,11 @@ class PersistenceAdaptersTest {
     void delete_by_name_cascades_deployment_history() {
         Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
         serviceDefinitions.create(service);
-        deploymentHistory.recordDeployment(service.name(), new ImageVersion("2.0.0"));
+        deploymentHistory.recordDeployment(
+                service.name(),
+                new ImageVersion("2.0.0"),
+                new ImageCommitSha.Unknown()
+        );
 
         DeleteServiceByNamePort.DeleteServiceByNameResult result = serviceDefinitions.deleteByName(service.name());
 

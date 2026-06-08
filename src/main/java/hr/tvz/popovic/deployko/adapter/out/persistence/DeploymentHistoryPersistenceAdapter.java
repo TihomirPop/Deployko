@@ -3,6 +3,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentAttempt;
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
+import hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.port.out.FindLatestDeploymentPort;
@@ -15,7 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.jooq.DSLContext;
-import org.jooq.Record4;
+import org.jooq.Record5;
 import org.jooq.exception.DataAccessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,9 +37,14 @@ public final class DeploymentHistoryPersistenceAdapter
     }
 
     @Override
-    public RecordDeploymentHistoryResult recordDeployment(ServiceName serviceName, ImageVersion imageVersion) {
+    public RecordDeploymentHistoryResult recordDeployment(
+            ServiceName serviceName,
+            ImageVersion imageVersion,
+            ImageCommitSha commitSha
+    ) {
         Objects.requireNonNull(serviceName, "serviceName must not be null");
         Objects.requireNonNull(imageVersion, "imageVersion must not be null");
+        Objects.requireNonNull(commitSha, "commitSha must not be null");
 
         try {
             Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
@@ -50,6 +56,7 @@ public final class DeploymentHistoryPersistenceAdapter
                     .insertInto(SERVICE_DEPLOYMENT_HISTORY)
                     .set(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID, serviceId.get())
                     .set(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION, imageVersion.value())
+                    .set(SERVICE_DEPLOYMENT_HISTORY.COMMIT_SHA, commitShaValue(commitSha))
                     .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, DeploymentStatus.IN_PROGRESS.name())
                     .returningResult(SERVICE_DEPLOYMENT_HISTORY.ID)
                     .fetchSingle(SERVICE_DEPLOYMENT_HISTORY.ID);
@@ -88,19 +95,16 @@ public final class DeploymentHistoryPersistenceAdapter
 
         try {
             Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
-            if (serviceId.isEmpty()) {
-                return new FindLatestDeploymentResult.ServiceNotFound();
-            }
-
-            return dsl
+            return serviceId.map(uuid -> dsl
                     .select(
                             SERVICE_DEPLOYMENT_HISTORY.ID,
                             SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION,
+                            SERVICE_DEPLOYMENT_HISTORY.COMMIT_SHA,
                             SERVICE_DEPLOYMENT_HISTORY.STATUS,
                             SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT
                     )
                     .from(SERVICE_DEPLOYMENT_HISTORY)
-                    .where(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID.eq(serviceId.get()))
+                    .where(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID.eq(uuid))
                     .orderBy(
                             SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT.desc(),
                             SERVICE_DEPLOYMENT_HISTORY.ID.desc()
@@ -108,7 +112,8 @@ public final class DeploymentHistoryPersistenceAdapter
                     .limit(1)
                     .fetchOptional()
                     .<FindLatestDeploymentResult>map(DeploymentHistoryPersistenceAdapter::latestDeploymentFound)
-                    .orElseGet(FindLatestDeploymentResult.NotDeployed::new);
+                    .orElseGet(FindLatestDeploymentResult.NotDeployed::new)).orElseGet(FindLatestDeploymentResult.ServiceNotFound::new);
+
         } catch (DataAccessException | IllegalArgumentException exception) {
             log.error("error while finding latest deployment history", exception);
             return new FindLatestDeploymentResult.Failure();
@@ -116,13 +121,27 @@ public final class DeploymentHistoryPersistenceAdapter
     }
 
     private static FindLatestDeploymentResult.Found latestDeploymentFound(
-            Record4<UUID, String, String, OffsetDateTime> record
+            Record5<UUID, String, String, String, OffsetDateTime> record
     ) {
         return new FindLatestDeploymentResult.Found(new DeploymentAttempt(
                 new DeploymentId(record.value1()),
                 new ImageVersion(record.value2()),
-                DeploymentStatus.valueOf(record.value3()),
-                record.value4()
+                commitShaFrom(record.value3()),
+                DeploymentStatus.valueOf(record.value4()),
+                record.value5()
         ));
+    }
+
+    private static String commitShaValue(ImageCommitSha commitSha) {
+        return switch (commitSha) {
+            case ImageCommitSha.Known known -> known.value();
+            case ImageCommitSha.Unknown _ -> null;
+        };
+    }
+
+    private static ImageCommitSha commitShaFrom(String value) {
+        return value == null
+                ? new ImageCommitSha.Unknown()
+                : new ImageCommitSha.Known(value);
     }
 }

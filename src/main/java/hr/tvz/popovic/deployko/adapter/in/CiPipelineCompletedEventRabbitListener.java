@@ -69,7 +69,8 @@ public final class CiPipelineCompletedEventRabbitListener {
             )) {
                 case HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.Deployed _,
                      HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.SkippedRecentDeployment _,
-                     HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.NoMatchingServices _ ->
+                     HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.NoMatchingServices _,
+                     HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.DeploymentImageNotFound _ ->
                         acknowledge(channel, event.message());
                 case HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.ServiceLookupFailure _,
                      HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.DeploymentFailure _,

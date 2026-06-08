@@ -18,6 +18,7 @@ public interface HandleCiPipelineCompletedEventUseCase {
             permits HandleCiPipelineCompletedEventResult.Deployed,
             HandleCiPipelineCompletedEventResult.SkippedRecentDeployment,
             HandleCiPipelineCompletedEventResult.NoMatchingServices,
+            HandleCiPipelineCompletedEventResult.DeploymentImageNotFound,
             HandleCiPipelineCompletedEventResult.DeploymentFailure,
             HandleCiPipelineCompletedEventResult.ServiceLookupFailure,
             HandleCiPipelineCompletedEventResult.LastDeploymentLookupFailure,
@@ -30,6 +31,9 @@ public interface HandleCiPipelineCompletedEventUseCase {
         }
 
         record NoMatchingServices() implements HandleCiPipelineCompletedEventResult {
+        }
+
+        record DeploymentImageNotFound() implements HandleCiPipelineCompletedEventResult {
         }
 
         record ServiceLookupFailure() implements HandleCiPipelineCompletedEventResult {

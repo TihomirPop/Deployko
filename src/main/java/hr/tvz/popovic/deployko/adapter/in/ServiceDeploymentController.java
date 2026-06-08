@@ -49,6 +49,7 @@ public class ServiceDeploymentController {
     public record LatestDeploymentHttpResponse(
             UUID deploymentId,
             String imageVersion,
+            String commitSha,
             String status,
             OffsetDateTime recordedAt
     ) {
@@ -57,9 +58,17 @@ public class ServiceDeploymentController {
             return new LatestDeploymentHttpResponse(
                     deploymentAttempt.deploymentId().value(),
                     deploymentAttempt.imageVersion().value(),
+                    commitShaValue(deploymentAttempt),
                     deploymentAttempt.status().name(),
                     deploymentAttempt.recordedAt()
             );
+        }
+
+        private static String commitShaValue(DeploymentAttempt deploymentAttempt) {
+            return switch (deploymentAttempt.commitSha()) {
+                case hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha.Known known -> known.value();
+                case hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha.Unknown _ -> null;
+            };
         }
     }
 }

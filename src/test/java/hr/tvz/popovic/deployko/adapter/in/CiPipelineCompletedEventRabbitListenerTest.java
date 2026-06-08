@@ -94,6 +94,26 @@ class CiPipelineCompletedEventRabbitListenerTest {
     }
 
     @Test
+    void acknowledges_missing_deployment_image_without_retrying() throws IOException {
+        StubUseCase useCase = new StubUseCase(
+                new HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.DeploymentImageNotFound()
+        );
+        CiPipelineCompletedEventRabbitListener listener = new CiPipelineCompletedEventRabbitListener(
+                new ObjectMapper(),
+                useCase
+        );
+        RecordingChannel channel = RecordingChannel.create();
+        Message message = message(1, """
+                {"event":"pipeline_completed","status":"success","imageRepository":"ghcr.io/deployko/api","imageVersion":"43-bbbbbbb","buildNumber":43}
+                """);
+
+        listener.consume(List.of(message), channel.proxy());
+
+        assertThat(channel.acks).containsExactly(new Ack(1, false));
+        assertThat(channel.nacks).isEmpty();
+    }
+
+    @Test
     void rejects_deployment_failures_for_retry() throws IOException {
         StubUseCase useCase = new StubUseCase(
                 new HandleCiPipelineCompletedEventUseCase.HandleCiPipelineCompletedEventResult.DeploymentFailure()

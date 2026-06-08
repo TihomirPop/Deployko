@@ -1,13 +1,18 @@
 package hr.tvz.popovic.deployko.application.port.out;
 
 import hr.tvz.popovic.deployko.application.domain.model.DeploymentId;
+import hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import java.util.Objects;
 
 public interface RecordDeploymentHistoryPort {
 
-    RecordDeploymentHistoryResult recordDeployment(ServiceName serviceName, ImageVersion imageVersion);
+    RecordDeploymentHistoryResult recordDeployment(
+            ServiceName serviceName,
+            ImageVersion imageVersion,
+            ImageCommitSha commitSha
+    );
 
     sealed interface RecordDeploymentHistoryResult
             permits RecordDeploymentHistoryResult.Recorded, RecordDeploymentHistoryResult.ServiceNotFound,
