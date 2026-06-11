@@ -340,6 +340,21 @@ GET {{host}}/services/missing-service/deployments/latest
 ### Get latest deployment invalid service
 GET {{host}}/services/Deployko Api/deployments/latest
 
+### Get deployment history
+GET {{host}}/services/{{serviceName}}/deployments
+
+### Get deployment history since timestamp
+GET {{host}}/services/{{serviceName}}/deployments?since=2026-06-07T10:15:30Z
+
+### Get deployment history missing service
+GET {{host}}/services/missing-service/deployments
+
+### Get deployment history invalid service
+GET {{host}}/services/Deployko Api/deployments
+
+### Get deployment history invalid since
+GET {{host}}/services/{{serviceName}}/deployments?since=not-a-timestamp
+
 ### Deploy
 POST {{host}}/services/{{serviceName}}/runtime/deploy
 Content-Type: application/json

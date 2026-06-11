@@ -29,6 +29,7 @@ import hr.tvz.popovic.deployko.application.port.out.DeleteServicePortMappingPort
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceVolumeMountPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceEnvironmentVariablePort;
 import hr.tvz.popovic.deployko.application.port.out.DeleteServiceEnvironmentVariablePort;
+import hr.tvz.popovic.deployko.application.port.out.FindDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.FindDesiredDeploymentStatePort;
 import hr.tvz.popovic.deployko.application.port.out.FindLastCiDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.FindLatestDeploymentPort;
@@ -1290,6 +1291,76 @@ class PersistenceAdaptersTest {
     }
 
     @Test
+    void find_deployment_history_returns_all_attempts_oldest_first_including_in_progress() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        UUID serviceId = serviceId(service.name());
+        insertDeploymentHistory(serviceId, "1.0.0", "aaa1111", DeploymentStatus.SUCCESS,
+                OffsetDateTime.parse("2026-06-06T08:00:00Z"));
+        insertDeploymentHistory(serviceId, "2.0.0", null, DeploymentStatus.IN_PROGRESS,
+                OffsetDateTime.parse("2026-06-07T10:15:30Z"));
+
+        FindDeploymentHistoryPort.FindDeploymentHistoryResult result =
+                deploymentHistory.findDeploymentHistory(service.name(), java.util.Optional.empty());
+
+        assertThat(result).isInstanceOf(FindDeploymentHistoryPort.FindDeploymentHistoryResult.Found.class);
+        FindDeploymentHistoryPort.FindDeploymentHistoryResult.Found found =
+                (FindDeploymentHistoryPort.FindDeploymentHistoryResult.Found) result;
+        assertThat(found.deploymentAttempts())
+                .extracting(attempt -> attempt.imageVersion().value())
+                .containsExactly("1.0.0", "2.0.0");
+        assertThat(found.deploymentAttempts().getFirst().commitSha())
+                .isEqualTo(new ImageCommitSha.Known("aaa1111"));
+        assertThat(found.deploymentAttempts().getLast().commitSha())
+                .isEqualTo(new ImageCommitSha.Unknown());
+        assertThat(found.deploymentAttempts().getLast().status()).isEqualTo(DeploymentStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void find_deployment_history_since_is_inclusive_and_filters_older_attempts() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+        UUID serviceId = serviceId(service.name());
+        OffsetDateTime boundary = OffsetDateTime.parse("2026-06-07T10:15:30Z");
+        insertDeploymentHistory(serviceId, "1.0.0", null, DeploymentStatus.SUCCESS,
+                boundary.minusDays(1));
+        insertDeploymentHistory(serviceId, "2.0.0", null, DeploymentStatus.SUCCESS, boundary);
+        insertDeploymentHistory(serviceId, "3.0.0", null, DeploymentStatus.SUCCESS,
+                boundary.plusDays(1));
+
+        FindDeploymentHistoryPort.FindDeploymentHistoryResult result =
+                deploymentHistory.findDeploymentHistory(service.name(), java.util.Optional.of(boundary));
+
+        FindDeploymentHistoryPort.FindDeploymentHistoryResult.Found found =
+                (FindDeploymentHistoryPort.FindDeploymentHistoryResult.Found) result;
+        assertThat(found.deploymentAttempts())
+                .extracting(attempt -> attempt.imageVersion().value())
+                .containsExactly("2.0.0", "3.0.0");
+    }
+
+    @Test
+    void find_deployment_history_returns_empty_list_when_history_is_empty() {
+        Service service = serviceWithRuntimeConfiguration(new ServiceName("billing-api"));
+        serviceDefinitions.create(service);
+
+        FindDeploymentHistoryPort.FindDeploymentHistoryResult result =
+                deploymentHistory.findDeploymentHistory(service.name(), java.util.Optional.empty());
+
+        assertThat(result).isInstanceOf(FindDeploymentHistoryPort.FindDeploymentHistoryResult.Found.class);
+        FindDeploymentHistoryPort.FindDeploymentHistoryResult.Found found =
+                (FindDeploymentHistoryPort.FindDeploymentHistoryResult.Found) result;
+        assertThat(found.deploymentAttempts()).isEmpty();
+    }
+
+    @Test
+    void find_deployment_history_returns_service_not_found_when_service_does_not_exist() {
+        FindDeploymentHistoryPort.FindDeploymentHistoryResult result =
+                deploymentHistory.findDeploymentHistory(new ServiceName("missing-api"), java.util.Optional.empty());
+
+        assertThat(result).isInstanceOf(FindDeploymentHistoryPort.FindDeploymentHistoryResult.ServiceNotFound.class);
+    }
+
+    @Test
     void record_deployment_history_returns_service_not_found_when_service_does_not_exist() {
         RecordDeploymentHistoryPort.RecordDeploymentHistoryResult result =
                 deploymentHistory.recordDeployment(
@@ -1353,6 +1424,31 @@ class PersistenceAdaptersTest {
                 serviceDefinitions.deleteByName(new ServiceName("missing-api"));
 
         assertThat(result).isInstanceOf(DeleteServiceByNamePort.DeleteServiceByNameResult.NotFound.class);
+    }
+
+    private static UUID serviceId(ServiceName serviceName) {
+        return dsl
+                .select(SERVICES.ID)
+                .from(SERVICES)
+                .where(SERVICES.NAME.eq(serviceName.value()))
+                .fetchSingle(SERVICES.ID);
+    }
+
+    private static void insertDeploymentHistory(
+            UUID serviceId,
+            String imageVersion,
+            String commitSha,
+            DeploymentStatus status,
+            OffsetDateTime recordedAt
+    ) {
+        dsl
+                .insertInto(SERVICE_DEPLOYMENT_HISTORY)
+                .set(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID, serviceId)
+                .set(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION, imageVersion)
+                .set(SERVICE_DEPLOYMENT_HISTORY.COMMIT_SHA, commitSha)
+                .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, status.name())
+                .set(SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT, recordedAt)
+                .execute();
     }
 
     private static Service serviceWithRuntimeConfiguration(ServiceName serviceName) {

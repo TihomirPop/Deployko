@@ -6,11 +6,13 @@ import hr.tvz.popovic.deployko.application.domain.model.DeploymentStatus;
 import hr.tvz.popovic.deployko.application.domain.model.ImageCommitSha;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
+import hr.tvz.popovic.deployko.application.port.out.FindDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.FindLatestDeploymentPort;
 import hr.tvz.popovic.deployko.application.port.out.RecordDeploymentHistoryPort;
 import hr.tvz.popovic.deployko.application.port.out.UpdateDeploymentStatusPort;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,7 +28,8 @@ import static hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Tab
 
 @Component
 public final class DeploymentHistoryPersistenceAdapter
-        implements RecordDeploymentHistoryPort, UpdateDeploymentStatusPort, FindLatestDeploymentPort {
+        implements RecordDeploymentHistoryPort, UpdateDeploymentStatusPort, FindLatestDeploymentPort,
+        FindDeploymentHistoryPort {
 
     private static final Logger log = LoggerFactory.getLogger(DeploymentHistoryPersistenceAdapter.class);
 
@@ -111,7 +114,8 @@ public final class DeploymentHistoryPersistenceAdapter
                     )
                     .limit(1)
                     .fetchOptional()
-                    .<FindLatestDeploymentResult>map(DeploymentHistoryPersistenceAdapter::latestDeploymentFound)
+                    .map(DeploymentHistoryPersistenceAdapter::deploymentAttempt)
+                    .<FindLatestDeploymentResult>map(FindLatestDeploymentResult.Found::new)
                     .orElseGet(FindLatestDeploymentResult.NotDeployed::new)).orElseGet(FindLatestDeploymentResult.ServiceNotFound::new);
 
         } catch (DataAccessException | IllegalArgumentException exception) {
@@ -120,16 +124,55 @@ public final class DeploymentHistoryPersistenceAdapter
         }
     }
 
-    private static FindLatestDeploymentResult.Found latestDeploymentFound(
+    @Override
+    public FindDeploymentHistoryResult findDeploymentHistory(ServiceName serviceName, Optional<OffsetDateTime> since) {
+        Objects.requireNonNull(serviceName, "serviceName must not be null");
+        Objects.requireNonNull(since, "since must not be null");
+
+        try {
+            Optional<UUID> serviceId = ServiceIdRecords.find(dsl, serviceName);
+            if (serviceId.isEmpty()) {
+                return new FindDeploymentHistoryResult.ServiceNotFound();
+            }
+
+            var condition = SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID.eq(serviceId.get());
+            if (since.isPresent()) {
+                condition = condition.and(SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT.ge(since.get()));
+            }
+
+            List<DeploymentAttempt> attempts = dsl
+                    .select(
+                            SERVICE_DEPLOYMENT_HISTORY.ID,
+                            SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION,
+                            SERVICE_DEPLOYMENT_HISTORY.COMMIT_SHA,
+                            SERVICE_DEPLOYMENT_HISTORY.STATUS,
+                            SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT
+                    )
+                    .from(SERVICE_DEPLOYMENT_HISTORY)
+                    .where(condition)
+                    .orderBy(
+                            SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT.asc(),
+                            SERVICE_DEPLOYMENT_HISTORY.ID.asc()
+                    )
+                    .fetch(DeploymentHistoryPersistenceAdapter::deploymentAttempt);
+
+            return new FindDeploymentHistoryResult.Found(attempts);
+        } catch (DataAccessException | IllegalArgumentException exception) {
+            log.error("error while finding deployment history", exception);
+            return new FindDeploymentHistoryResult.Failure();
+        }
+    }
+
+    private static DeploymentAttempt deploymentAttempt(
             Record5<UUID, String, String, String, OffsetDateTime> record
     ) {
-        return new FindLatestDeploymentResult.Found(new DeploymentAttempt(
+        return new DeploymentAttempt(
                 new DeploymentId(record.value1()),
                 new ImageVersion(record.value2()),
                 commitShaFrom(record.value3()),
                 DeploymentStatus.valueOf(record.value4()),
                 record.value5()
-        ));
+        );
     }
 
     private static String commitShaValue(ImageCommitSha commitSha) {
