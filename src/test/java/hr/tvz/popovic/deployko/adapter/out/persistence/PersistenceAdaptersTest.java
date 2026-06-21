@@ -18,6 +18,8 @@ import hr.tvz.popovic.deployko.application.domain.model.Service;
 import hr.tvz.popovic.deployko.application.domain.model.ServiceName;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMount;
 import hr.tvz.popovic.deployko.application.domain.model.VolumeMounts;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.PortProtocol;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.VolumeMountType;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePortMappingPort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServicePort;
 import hr.tvz.popovic.deployko.application.port.out.CreateServiceVolumeMountPort;
@@ -149,16 +151,16 @@ class PersistenceAdaptersTest {
                         .selectOne()
                         .from(SERVICE_PORT_MAPPINGS)
                         .where(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(8080))
-                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq("TCP"))
+                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(PortProtocol.TCP))
                         .and(SERVICE_PORT_MAPPINGS.CONTAINER_PORT.eq(80))
-                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL.eq("TCP"))
+                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL.eq(PortProtocol.TCP))
         )).isTrue();
         assertThat(dsl.fetchExists(
                 dsl
                         .selectOne()
                         .from(SERVICE_VOLUME_MOUNTS)
                         .where(SERVICE_VOLUME_MOUNTS.TARGET_PATH.eq("/app/config"))
-                        .and(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE.eq("BIND"))
+                        .and(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE.eq(VolumeMountType.BIND))
                         .and(SERVICE_VOLUME_MOUNTS.SOURCE.eq("/opt/deployko/billing-api/config"))
                         .and(SERVICE_VOLUME_MOUNTS.READ_ONLY.isTrue())
         )).isTrue();
@@ -536,7 +538,7 @@ class PersistenceAdaptersTest {
                         .selectOne()
                         .from(SERVICE_VOLUME_MOUNTS)
                         .where(SERVICE_VOLUME_MOUNTS.TARGET_PATH.eq("/app/config"))
-                        .and(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE.eq("BIND"))
+                        .and(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE.eq(VolumeMountType.BIND))
                         .and(SERVICE_VOLUME_MOUNTS.SOURCE.eq("/opt/deployko/config"))
                         .and(SERVICE_VOLUME_MOUNTS.READ_ONLY.eq(true))
         )).isTrue();
@@ -597,7 +599,7 @@ class PersistenceAdaptersTest {
                         .selectOne()
                         .from(SERVICE_VOLUME_MOUNTS)
                         .where(SERVICE_VOLUME_MOUNTS.TARGET_PATH.eq("/app/config"))
-                        .and(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE.eq("VOLUME"))
+                        .and(SERVICE_VOLUME_MOUNTS.MOUNT_TYPE.eq(VolumeMountType.VOLUME))
                         .and(SERVICE_VOLUME_MOUNTS.SOURCE.eq("deployko_config"))
                         .and(SERVICE_VOLUME_MOUNTS.READ_ONLY.eq(false))
         )).isTrue();
@@ -705,9 +707,9 @@ class PersistenceAdaptersTest {
                         .selectOne()
                         .from(SERVICE_PORT_MAPPINGS)
                         .where(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(8080))
-                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq("TCP"))
+                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(PortProtocol.TCP))
                         .and(SERVICE_PORT_MAPPINGS.CONTAINER_PORT.eq(80))
-                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL.eq("TCP"))
+                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL.eq(PortProtocol.TCP))
         )).isTrue();
     }
 
@@ -773,7 +775,7 @@ class PersistenceAdaptersTest {
                         .selectOne()
                         .from(SERVICE_PORT_MAPPINGS)
                         .where(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(8080))
-                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq("TCP"))
+                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(PortProtocol.TCP))
         )).isFalse();
     }
 
@@ -950,7 +952,7 @@ class PersistenceAdaptersTest {
                         .selectOne()
                         .from(SERVICE_DESIRED_DEPLOYMENTS)
                         .where(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION.eq("1.0.0"))
-                        .and(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE.eq("RUNNING"))
+                        .and(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE.eq(DesiredDeploymentStates.toJooq(DesiredDeploymentState.RUNNING)))
         )).isTrue();
         assertThat(dsl.fetchExists(
                 dsl
@@ -1021,7 +1023,7 @@ class PersistenceAdaptersTest {
                 dsl
                         .select(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE)
                         .from(SERVICE_DESIRED_DEPLOYMENTS)
-        )).isEqualTo("STOPPED");
+        )).isEqualTo(DesiredDeploymentStates.toJooq(DesiredDeploymentState.STOPPED));
     }
 
     @Test
@@ -1194,7 +1196,7 @@ class PersistenceAdaptersTest {
                         .where(SERVICES.NAME.eq("billing-api"))
                         .and(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION.eq("2.0.0"))
                         .and(SERVICE_DEPLOYMENT_HISTORY.COMMIT_SHA.eq("f5a1c2d"))
-                        .and(SERVICE_DEPLOYMENT_HISTORY.STATUS.eq(DeploymentStatus.IN_PROGRESS.name()))
+                        .and(SERVICE_DEPLOYMENT_HISTORY.STATUS.eq(DeploymentStatuses.toJooq(DeploymentStatus.IN_PROGRESS)))
                         .and(SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT.isNotNull())
         )).isTrue();
     }
@@ -1220,7 +1222,7 @@ class PersistenceAdaptersTest {
                 .from(SERVICE_DEPLOYMENT_HISTORY)
                 .where(SERVICE_DEPLOYMENT_HISTORY.ID.eq(recorded.deploymentId().value()))
                 .fetchSingle(SERVICE_DEPLOYMENT_HISTORY.STATUS))
-                .isEqualTo(DeploymentStatus.CANCELED.name());
+                .isEqualTo(DeploymentStatuses.toJooq(DeploymentStatus.CANCELED));
     }
 
     @Test
@@ -1446,7 +1448,7 @@ class PersistenceAdaptersTest {
                 .set(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID, serviceId)
                 .set(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION, imageVersion)
                 .set(SERVICE_DEPLOYMENT_HISTORY.COMMIT_SHA, commitSha)
-                .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, status.name())
+                .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, DeploymentStatuses.toJooq(status))
                 .set(SERVICE_DEPLOYMENT_HISTORY.RECORDED_AT, recordedAt)
                 .execute();
     }

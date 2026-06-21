@@ -6,6 +6,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables;
 
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Keys;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Public;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentEnvironmentVariables.ServiceDesiredDeploymentEnvironmentVariablesPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentNetworkAttachments.ServiceDesiredDeploymentNetworkAttachmentsPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentPortMappings.ServiceDesiredDeploymentPortMappingsPath;
@@ -19,7 +20,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-import org.jooq.Check;
 import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
@@ -38,7 +38,6 @@ import org.jooq.TableField;
 import org.jooq.TableOptions;
 import org.jooq.UniqueKey;
 import org.jooq.impl.DSL;
-import org.jooq.impl.Internal;
 import org.jooq.impl.SQLDataType;
 import org.jooq.impl.TableImpl;
 
@@ -77,7 +76,7 @@ public class ServiceDesiredDeployments extends TableImpl<ServiceDesiredDeploymen
     /**
      * The column <code>public.service_desired_deployments.desired_state</code>.
      */
-    public final TableField<ServiceDesiredDeploymentsRecord, String> DESIRED_STATE = createField(DSL.name("desired_state"), SQLDataType.CLOB.nullable(false), this, "");
+    public final TableField<ServiceDesiredDeploymentsRecord, DesiredDeploymentState> DESIRED_STATE = createField(DSL.name("desired_state"), SQLDataType.VARCHAR.nullable(false).asEnumDataType(DesiredDeploymentState.class), this, "");
 
     /**
      * The column <code>public.service_desired_deployments.created_at</code>.
@@ -231,13 +230,6 @@ public class ServiceDesiredDeployments extends TableImpl<ServiceDesiredDeploymen
             _serviceDesiredDeploymentVolumeMounts = new ServiceDesiredDeploymentVolumeMountsPath(this, null, Keys.SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS__SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS_SERVICE_ID_FKEY.getInverseKey());
 
         return _serviceDesiredDeploymentVolumeMounts;
-    }
-
-    @Override
-    public List<Check<ServiceDesiredDeploymentsRecord>> getChecks() {
-        return Arrays.asList(
-            Internal.createCheck(this, DSL.name("service_desired_deployments_desired_state_check"), "((desired_state = ANY (ARRAY['RUNNING'::text, 'STOPPED'::text])))", true)
-        );
     }
 
     @Override

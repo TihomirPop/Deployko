@@ -60,7 +60,7 @@ public final class DeploymentHistoryPersistenceAdapter
                     .set(SERVICE_DEPLOYMENT_HISTORY.SERVICE_ID, serviceId.get())
                     .set(SERVICE_DEPLOYMENT_HISTORY.IMAGE_VERSION, imageVersion.value())
                     .set(SERVICE_DEPLOYMENT_HISTORY.COMMIT_SHA, commitShaValue(commitSha))
-                    .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, DeploymentStatus.IN_PROGRESS.name())
+                    .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, DeploymentStatuses.toJooq(DeploymentStatus.IN_PROGRESS))
                     .returningResult(SERVICE_DEPLOYMENT_HISTORY.ID)
                     .fetchSingle(SERVICE_DEPLOYMENT_HISTORY.ID);
 
@@ -79,7 +79,7 @@ public final class DeploymentHistoryPersistenceAdapter
         try {
             int updated = dsl
                     .update(SERVICE_DEPLOYMENT_HISTORY)
-                    .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, status.name())
+                    .set(SERVICE_DEPLOYMENT_HISTORY.STATUS, DeploymentStatuses.toJooq(status))
                     .where(SERVICE_DEPLOYMENT_HISTORY.ID.eq(deploymentId.value()))
                     .execute();
 
@@ -164,13 +164,15 @@ public final class DeploymentHistoryPersistenceAdapter
     }
 
     private static DeploymentAttempt deploymentAttempt(
-            Record5<UUID, String, String, String, OffsetDateTime> record
+            Record5<UUID, String, String,
+                    hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.DeploymentStatus,
+                    OffsetDateTime> record
     ) {
         return new DeploymentAttempt(
                 new DeploymentId(record.value1()),
                 new ImageVersion(record.value2()),
                 commitShaFrom(record.value3()),
-                DeploymentStatus.valueOf(record.value4()),
+                DeploymentStatuses.toDomain(record.value4()),
                 record.value5()
         );
     }

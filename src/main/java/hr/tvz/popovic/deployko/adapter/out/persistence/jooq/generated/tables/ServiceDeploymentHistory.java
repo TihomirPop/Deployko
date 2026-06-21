@@ -7,6 +7,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Indexes;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Keys;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Public;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.DeploymentStatus;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.Services.ServicesPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records.ServiceDeploymentHistoryRecord;
 
@@ -16,7 +17,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-import org.jooq.Check;
 import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
@@ -36,7 +36,6 @@ import org.jooq.TableField;
 import org.jooq.TableOptions;
 import org.jooq.UniqueKey;
 import org.jooq.impl.DSL;
-import org.jooq.impl.Internal;
 import org.jooq.impl.SQLDataType;
 import org.jooq.impl.TableImpl;
 
@@ -85,7 +84,7 @@ public class ServiceDeploymentHistory extends TableImpl<ServiceDeploymentHistory
     /**
      * The column <code>public.service_deployment_history.status</code>.
      */
-    public final TableField<ServiceDeploymentHistoryRecord, String> STATUS = createField(DSL.name("status"), SQLDataType.CLOB.nullable(false).defaultValue(DSL.field(DSL.raw("'IN_PROGRESS'::text"), SQLDataType.CLOB)), this, "");
+    public final TableField<ServiceDeploymentHistoryRecord, DeploymentStatus> STATUS = createField(DSL.name("status"), SQLDataType.VARCHAR.nullable(false).defaultValue(DSL.field(DSL.raw("'IN_PROGRESS'::deployment_status"), SQLDataType.VARCHAR)).asEnumDataType(DeploymentStatus.class), this, "");
 
     /**
      * The column <code>public.service_deployment_history.commit_sha</code>.
@@ -186,13 +185,6 @@ public class ServiceDeploymentHistory extends TableImpl<ServiceDeploymentHistory
             _services = new ServicesPath(this, Keys.SERVICE_DEPLOYMENT_HISTORY__SERVICE_DEPLOYMENT_HISTORY_SERVICE_ID_FKEY, null);
 
         return _services;
-    }
-
-    @Override
-    public List<Check<ServiceDeploymentHistoryRecord>> getChecks() {
-        return Arrays.asList(
-            Internal.createCheck(this, DSL.name("service_deployment_history_status_check"), "((status = ANY (ARRAY['IN_PROGRESS'::text, 'SUCCESS'::text, 'FAILURE'::text, 'CANCELED'::text])))", true)
-        );
     }
 
     @Override

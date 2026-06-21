@@ -68,9 +68,9 @@ final class DesiredDeploymentRuntimeConfigurationRecords {
                     .insertInto(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS)
                     .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.SERVICE_ID, serviceId)
                     .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.HOST_PORT, hostPort.value())
-                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.HOST_PROTOCOL, hostPort.protocol().name())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.HOST_PROTOCOL, PortProtocols.toJooq(hostPort.protocol()))
                     .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.CONTAINER_PORT, containerPort.value())
-                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.CONTAINER_PROTOCOL, containerPort.protocol().name())
+                    .set(SERVICE_DESIRED_DEPLOYMENT_PORT_MAPPINGS.CONTAINER_PROTOCOL, PortProtocols.toJooq(containerPort.protocol()))
                     .execute();
         }
     }

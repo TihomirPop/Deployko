@@ -6,6 +6,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables;
 
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Keys;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Public;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.PortProtocol;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.Services.ServicesPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records.ServicePortMappingsRecord;
 
@@ -70,7 +71,7 @@ public class ServicePortMappings extends TableImpl<ServicePortMappingsRecord> {
     /**
      * The column <code>public.service_port_mappings.host_protocol</code>.
      */
-    public final TableField<ServicePortMappingsRecord, String> HOST_PROTOCOL = createField(DSL.name("host_protocol"), SQLDataType.CLOB.nullable(false), this, "");
+    public final TableField<ServicePortMappingsRecord, PortProtocol> HOST_PROTOCOL = createField(DSL.name("host_protocol"), SQLDataType.VARCHAR.nullable(false).asEnumDataType(PortProtocol.class), this, "");
 
     /**
      * The column <code>public.service_port_mappings.container_port</code>.
@@ -80,7 +81,7 @@ public class ServicePortMappings extends TableImpl<ServicePortMappingsRecord> {
     /**
      * The column <code>public.service_port_mappings.container_protocol</code>.
      */
-    public final TableField<ServicePortMappingsRecord, String> CONTAINER_PROTOCOL = createField(DSL.name("container_protocol"), SQLDataType.CLOB.nullable(false), this, "");
+    public final TableField<ServicePortMappingsRecord, PortProtocol> CONTAINER_PROTOCOL = createField(DSL.name("container_protocol"), SQLDataType.VARCHAR.nullable(false).asEnumDataType(PortProtocol.class), this, "");
 
     private ServicePortMappings(Name alias, Table<ServicePortMappingsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);

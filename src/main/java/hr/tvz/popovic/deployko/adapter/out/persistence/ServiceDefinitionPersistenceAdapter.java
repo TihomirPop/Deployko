@@ -1,6 +1,5 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence;
 
-import hr.tvz.popovic.deployko.application.domain.model.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.application.domain.model.ImageRepository;
 import hr.tvz.popovic.deployko.application.domain.model.ImageVersion;
 import hr.tvz.popovic.deployko.application.domain.model.Service;
@@ -130,7 +129,7 @@ public final class ServiceDefinitionPersistenceAdapter
                             Optional.ofNullable(record.get(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION))
                                     .map(ImageVersion::new),
                             Optional.ofNullable(record.get(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE))
-                                    .map(DesiredDeploymentState::valueOf)
+                                    .map(DesiredDeploymentStates::toDomain)
                     ));
 
             return new FindServiceSummaryCandidatesResult.Found(services);

@@ -4,6 +4,7 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records;
 
 
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.VolumeMountType;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceVolumeMounts;
 
 import java.util.UUID;
@@ -51,15 +52,15 @@ public class ServiceVolumeMountsRecord extends UpdatableRecordImpl<ServiceVolume
     /**
      * Setter for <code>public.service_volume_mounts.mount_type</code>.
      */
-    public void setMountType(String value) {
+    public void setMountType(VolumeMountType value) {
         set(2, value);
     }
 
     /**
      * Getter for <code>public.service_volume_mounts.mount_type</code>.
      */
-    public String getMountType() {
-        return (String) get(2);
+    public VolumeMountType getMountType() {
+        return (VolumeMountType) get(2);
     }
 
     /**
@@ -113,7 +114,7 @@ public class ServiceVolumeMountsRecord extends UpdatableRecordImpl<ServiceVolume
     /**
      * Create a detached, initialised ServiceVolumeMountsRecord
      */
-    public ServiceVolumeMountsRecord(UUID serviceId, String targetPath, String mountType, String source, Boolean readOnly) {
+    public ServiceVolumeMountsRecord(UUID serviceId, String targetPath, VolumeMountType mountType, String source, Boolean readOnly) {
         super(ServiceVolumeMounts.SERVICE_VOLUME_MOUNTS);
 
         setServiceId(serviceId);

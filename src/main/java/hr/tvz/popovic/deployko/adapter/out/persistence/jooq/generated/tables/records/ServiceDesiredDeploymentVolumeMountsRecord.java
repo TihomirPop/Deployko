@@ -4,6 +4,7 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records;
 
 
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.VolumeMountType;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeploymentVolumeMounts;
 
 import java.util.UUID;
@@ -56,7 +57,7 @@ public class ServiceDesiredDeploymentVolumeMountsRecord extends UpdatableRecordI
      * Setter for
      * <code>public.service_desired_deployment_volume_mounts.mount_type</code>.
      */
-    public void setMountType(String value) {
+    public void setMountType(VolumeMountType value) {
         set(2, value);
     }
 
@@ -64,8 +65,8 @@ public class ServiceDesiredDeploymentVolumeMountsRecord extends UpdatableRecordI
      * Getter for
      * <code>public.service_desired_deployment_volume_mounts.mount_type</code>.
      */
-    public String getMountType() {
-        return (String) get(2);
+    public VolumeMountType getMountType() {
+        return (VolumeMountType) get(2);
     }
 
     /**
@@ -123,7 +124,7 @@ public class ServiceDesiredDeploymentVolumeMountsRecord extends UpdatableRecordI
     /**
      * Create a detached, initialised ServiceDesiredDeploymentVolumeMountsRecord
      */
-    public ServiceDesiredDeploymentVolumeMountsRecord(UUID serviceId, String targetPath, String mountType, String source, Boolean readOnly) {
+    public ServiceDesiredDeploymentVolumeMountsRecord(UUID serviceId, String targetPath, VolumeMountType mountType, String source, Boolean readOnly) {
         super(ServiceDesiredDeploymentVolumeMounts.SERVICE_DESIRED_DEPLOYMENT_VOLUME_MOUNTS);
 
         setServiceId(serviceId);

@@ -4,6 +4,7 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records;
 
 
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.DeploymentStatus;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDeploymentHistory;
 
 import java.time.OffsetDateTime;
@@ -80,15 +81,15 @@ public class ServiceDeploymentHistoryRecord extends UpdatableRecordImpl<ServiceD
     /**
      * Setter for <code>public.service_deployment_history.status</code>.
      */
-    public void setStatus(String value) {
+    public void setStatus(DeploymentStatus value) {
         set(4, value);
     }
 
     /**
      * Getter for <code>public.service_deployment_history.status</code>.
      */
-    public String getStatus() {
-        return (String) get(4);
+    public DeploymentStatus getStatus() {
+        return (DeploymentStatus) get(4);
     }
 
     /**
@@ -128,7 +129,7 @@ public class ServiceDeploymentHistoryRecord extends UpdatableRecordImpl<ServiceD
     /**
      * Create a detached, initialised ServiceDeploymentHistoryRecord
      */
-    public ServiceDeploymentHistoryRecord(UUID id, UUID serviceId, String imageVersion, OffsetDateTime recordedAt, String status, String commitSha) {
+    public ServiceDeploymentHistoryRecord(UUID id, UUID serviceId, String imageVersion, OffsetDateTime recordedAt, DeploymentStatus status, String commitSha) {
         super(ServiceDeploymentHistory.SERVICE_DEPLOYMENT_HISTORY);
 
         setId(id);

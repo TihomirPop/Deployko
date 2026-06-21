@@ -6,6 +6,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables;
 
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Keys;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Public;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.PortProtocol;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeployments.ServiceDesiredDeploymentsPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records.ServiceDesiredDeploymentPortMappingsRecord;
 
@@ -74,7 +75,7 @@ public class ServiceDesiredDeploymentPortMappings extends TableImpl<ServiceDesir
      * The column
      * <code>public.service_desired_deployment_port_mappings.host_protocol</code>.
      */
-    public final TableField<ServiceDesiredDeploymentPortMappingsRecord, String> HOST_PROTOCOL = createField(DSL.name("host_protocol"), SQLDataType.CLOB.nullable(false), this, "");
+    public final TableField<ServiceDesiredDeploymentPortMappingsRecord, PortProtocol> HOST_PROTOCOL = createField(DSL.name("host_protocol"), SQLDataType.VARCHAR.nullable(false).asEnumDataType(PortProtocol.class), this, "");
 
     /**
      * The column
@@ -86,7 +87,7 @@ public class ServiceDesiredDeploymentPortMappings extends TableImpl<ServiceDesir
      * The column
      * <code>public.service_desired_deployment_port_mappings.container_protocol</code>.
      */
-    public final TableField<ServiceDesiredDeploymentPortMappingsRecord, String> CONTAINER_PROTOCOL = createField(DSL.name("container_protocol"), SQLDataType.CLOB.nullable(false), this, "");
+    public final TableField<ServiceDesiredDeploymentPortMappingsRecord, PortProtocol> CONTAINER_PROTOCOL = createField(DSL.name("container_protocol"), SQLDataType.VARCHAR.nullable(false).asEnumDataType(PortProtocol.class), this, "");
 
     private ServiceDesiredDeploymentPortMappings(Name alias, Table<ServiceDesiredDeploymentPortMappingsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);

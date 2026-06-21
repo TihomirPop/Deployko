@@ -75,7 +75,7 @@ public final class DesiredDeploymentPersistenceAdapter
 
             int updatedRows = dsl
                     .update(SERVICE_DESIRED_DEPLOYMENTS)
-                    .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, desiredState.name())
+                    .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, DesiredDeploymentStates.toJooq(desiredState))
                     .set(SERVICE_DESIRED_DEPLOYMENTS.UPDATED_AT, OffsetDateTime.now())
                     .where(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID.eq(serviceId.get()))
                     .execute();
@@ -101,7 +101,7 @@ public final class DesiredDeploymentPersistenceAdapter
                 return new FindDesiredDeploymentStateResult.ServiceNotFound();
             }
 
-            String desiredState = dsl
+            var desiredState = dsl
                     .select(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE)
                     .from(SERVICE_DESIRED_DEPLOYMENTS)
                     .where(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID.eq(serviceId.get()))
@@ -112,7 +112,7 @@ public final class DesiredDeploymentPersistenceAdapter
                 return new FindDesiredDeploymentStateResult.NotDeployed();
             }
 
-            return new FindDesiredDeploymentStateResult.Found(DesiredDeploymentState.valueOf(desiredState));
+            return new FindDesiredDeploymentStateResult.Found(DesiredDeploymentStates.toDomain(desiredState));
         } catch (DataAccessException | IllegalArgumentException exception) {
             log.error("error while finding desired deployment state", exception);
             return new FindDesiredDeploymentStateResult.Failure();
@@ -150,11 +150,11 @@ public final class DesiredDeploymentPersistenceAdapter
                 .insertInto(SERVICE_DESIRED_DEPLOYMENTS)
                 .set(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID, serviceId)
                 .set(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION, desiredDeployment.imageVersion().value())
-                .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, desiredDeployment.desiredState().name())
+                .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, DesiredDeploymentStates.toJooq(desiredDeployment.desiredState()))
                 .onConflict(SERVICE_DESIRED_DEPLOYMENTS.SERVICE_ID)
                 .doUpdate()
                 .set(SERVICE_DESIRED_DEPLOYMENTS.IMAGE_VERSION, desiredDeployment.imageVersion().value())
-                .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, desiredDeployment.desiredState().name())
+                .set(SERVICE_DESIRED_DEPLOYMENTS.DESIRED_STATE, DesiredDeploymentStates.toJooq(desiredDeployment.desiredState()))
                 .set(SERVICE_DESIRED_DEPLOYMENTS.UPDATED_AT, OffsetDateTime.now())
                 .execute();
     }

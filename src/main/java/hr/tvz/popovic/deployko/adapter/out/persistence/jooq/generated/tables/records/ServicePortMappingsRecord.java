@@ -4,6 +4,7 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records;
 
 
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.PortProtocol;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServicePortMappings;
 
 import java.util.UUID;
@@ -51,15 +52,15 @@ public class ServicePortMappingsRecord extends UpdatableRecordImpl<ServicePortMa
     /**
      * Setter for <code>public.service_port_mappings.host_protocol</code>.
      */
-    public void setHostProtocol(String value) {
+    public void setHostProtocol(PortProtocol value) {
         set(2, value);
     }
 
     /**
      * Getter for <code>public.service_port_mappings.host_protocol</code>.
      */
-    public String getHostProtocol() {
-        return (String) get(2);
+    public PortProtocol getHostProtocol() {
+        return (PortProtocol) get(2);
     }
 
     /**
@@ -79,15 +80,15 @@ public class ServicePortMappingsRecord extends UpdatableRecordImpl<ServicePortMa
     /**
      * Setter for <code>public.service_port_mappings.container_protocol</code>.
      */
-    public void setContainerProtocol(String value) {
+    public void setContainerProtocol(PortProtocol value) {
         set(4, value);
     }
 
     /**
      * Getter for <code>public.service_port_mappings.container_protocol</code>.
      */
-    public String getContainerProtocol() {
-        return (String) get(4);
+    public PortProtocol getContainerProtocol() {
+        return (PortProtocol) get(4);
     }
 
     // -------------------------------------------------------------------------
@@ -95,7 +96,7 @@ public class ServicePortMappingsRecord extends UpdatableRecordImpl<ServicePortMa
     // -------------------------------------------------------------------------
 
     @Override
-    public Record3<UUID, Integer, String> key() {
+    public Record3<UUID, Integer, PortProtocol> key() {
         return (Record3) super.key();
     }
 
@@ -113,7 +114,7 @@ public class ServicePortMappingsRecord extends UpdatableRecordImpl<ServicePortMa
     /**
      * Create a detached, initialised ServicePortMappingsRecord
      */
-    public ServicePortMappingsRecord(UUID serviceId, Integer hostPort, String hostProtocol, Integer containerPort, String containerProtocol) {
+    public ServicePortMappingsRecord(UUID serviceId, Integer hostPort, PortProtocol hostProtocol, Integer containerPort, PortProtocol containerProtocol) {
         super(ServicePortMappings.SERVICE_PORT_MAPPINGS);
 
         setServiceId(serviceId);

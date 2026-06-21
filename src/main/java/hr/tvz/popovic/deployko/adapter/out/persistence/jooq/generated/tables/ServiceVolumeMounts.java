@@ -6,6 +6,7 @@ package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables;
 
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Keys;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.Public;
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.VolumeMountType;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.Services.ServicesPath;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records.ServiceVolumeMountsRecord;
 
@@ -70,7 +71,7 @@ public class ServiceVolumeMounts extends TableImpl<ServiceVolumeMountsRecord> {
     /**
      * The column <code>public.service_volume_mounts.mount_type</code>.
      */
-    public final TableField<ServiceVolumeMountsRecord, String> MOUNT_TYPE = createField(DSL.name("mount_type"), SQLDataType.CLOB.nullable(false), this, "");
+    public final TableField<ServiceVolumeMountsRecord, VolumeMountType> MOUNT_TYPE = createField(DSL.name("mount_type"), SQLDataType.VARCHAR.nullable(false).asEnumDataType(VolumeMountType.class), this, "");
 
     /**
      * The column <code>public.service_volume_mounts.source</code>.

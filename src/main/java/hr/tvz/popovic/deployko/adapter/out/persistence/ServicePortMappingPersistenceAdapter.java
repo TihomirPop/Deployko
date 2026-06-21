@@ -96,7 +96,7 @@ public final class ServicePortMappingPersistenceAdapter
                     .deleteFrom(SERVICE_PORT_MAPPINGS)
                     .where(SERVICE_PORT_MAPPINGS.SERVICE_ID.eq(serviceId.get()))
                     .and(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(hostPort.value()))
-                    .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(hostPort.protocol().name()))
+                    .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(PortProtocols.toJooq(hostPort.protocol())))
                     .execute();
 
             return switch (deletedRows) {
@@ -117,14 +117,14 @@ public final class ServicePortMappingPersistenceAdapter
                         .from(SERVICE_PORT_MAPPINGS)
                         .where(SERVICE_PORT_MAPPINGS.SERVICE_ID.eq(serviceId))
                         .and(SERVICE_PORT_MAPPINGS.HOST_PORT.eq(hostPort.value()))
-                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(hostPort.protocol().name()))
+                        .and(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL.eq(PortProtocols.toJooq(hostPort.protocol())))
         ) || dsl.fetchExists(
                 dsl
                         .selectOne()
                         .from(SERVICE_PORT_MAPPINGS)
                         .where(SERVICE_PORT_MAPPINGS.SERVICE_ID.eq(serviceId))
                         .and(SERVICE_PORT_MAPPINGS.CONTAINER_PORT.eq(containerPort.value()))
-                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL.eq(containerPort.protocol().name()))
+                        .and(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL.eq(PortProtocols.toJooq(containerPort.protocol())))
         );
     }
 
@@ -133,9 +133,9 @@ public final class ServicePortMappingPersistenceAdapter
                 .insertInto(SERVICE_PORT_MAPPINGS)
                 .set(SERVICE_PORT_MAPPINGS.SERVICE_ID, serviceId)
                 .set(SERVICE_PORT_MAPPINGS.HOST_PORT, hostPort.value())
-                .set(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL, hostPort.protocol().name())
+                .set(SERVICE_PORT_MAPPINGS.HOST_PROTOCOL, PortProtocols.toJooq(hostPort.protocol()))
                 .set(SERVICE_PORT_MAPPINGS.CONTAINER_PORT, containerPort.value())
-                .set(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL, containerPort.protocol().name())
+                .set(SERVICE_PORT_MAPPINGS.CONTAINER_PROTOCOL, PortProtocols.toJooq(containerPort.protocol()))
                 .execute();
     }
 }

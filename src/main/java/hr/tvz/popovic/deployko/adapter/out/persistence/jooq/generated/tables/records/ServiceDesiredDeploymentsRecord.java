@@ -4,6 +4,7 @@
 package hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.records;
 
 
+import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.enums.DesiredDeploymentState;
 import hr.tvz.popovic.deployko.adapter.out.persistence.jooq.generated.tables.ServiceDesiredDeployments;
 
 import java.time.OffsetDateTime;
@@ -52,15 +53,15 @@ public class ServiceDesiredDeploymentsRecord extends UpdatableRecordImpl<Service
     /**
      * Setter for <code>public.service_desired_deployments.desired_state</code>.
      */
-    public void setDesiredState(String value) {
+    public void setDesiredState(DesiredDeploymentState value) {
         set(2, value);
     }
 
     /**
      * Getter for <code>public.service_desired_deployments.desired_state</code>.
      */
-    public String getDesiredState() {
-        return (String) get(2);
+    public DesiredDeploymentState getDesiredState() {
+        return (DesiredDeploymentState) get(2);
     }
 
     /**
@@ -114,7 +115,7 @@ public class ServiceDesiredDeploymentsRecord extends UpdatableRecordImpl<Service
     /**
      * Create a detached, initialised ServiceDesiredDeploymentsRecord
      */
-    public ServiceDesiredDeploymentsRecord(UUID serviceId, String imageVersion, String desiredState, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+    public ServiceDesiredDeploymentsRecord(UUID serviceId, String imageVersion, DesiredDeploymentState desiredState, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         super(ServiceDesiredDeployments.SERVICE_DESIRED_DEPLOYMENTS);
 
         setServiceId(serviceId);
